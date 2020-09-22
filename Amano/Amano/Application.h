@@ -1,5 +1,6 @@
 #pragma once
 #include "Config.h"
+#include "Device.h"
 
 namespace Amano {
 
@@ -8,6 +9,7 @@ public:
 	Application();
 	~Application();
 
+	bool init();
 	void run();
 	void notifyFramebufferResized();
 
@@ -15,7 +17,6 @@ private:
 	void initWindow();
 	bool createInstance();
 	bool setupDebugMessenger();
-	bool createSurface();
 
 	//void initVulkan();
 	void mainLoop();
@@ -25,7 +26,7 @@ private:
 	GLFWwindow* m_window;
 	VkInstance m_instance;
 	VkDebugUtilsMessengerEXT m_debugMessenger;
-	VkSurfaceKHR m_surface;
+	Device* m_device;
 	bool m_framebufferResized;
 };
 

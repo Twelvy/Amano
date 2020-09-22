@@ -7,18 +7,8 @@
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
-#ifdef NDEBUG
-const bool cEnableValidationLayers = false;
-#else
-const bool cEnableValidationLayers = true;
-#endif
-
 const std::vector<const char*> cValidationLayers = {
 	"VK_LAYER_KHRONOS_validation"
-};
-const std::vector<const char*> cDeviceExtensions = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-	VK_NV_RAY_TRACING_EXTENSION_NAME,
 };
 
 namespace {
@@ -104,29 +94,38 @@ Application::Application()
 	: m_window{ nullptr }
 	, m_instance{ VK_NULL_HANDLE }
 	, m_debugMessenger{ VK_NULL_HANDLE }
-	, m_surface{ VK_NULL_HANDLE }
+	, m_device{ nullptr }
 	, m_framebufferResized{ false }
 {
 }
 
 Application::~Application() {
+	delete m_device;
+	m_device = nullptr;
 
 	if (cEnableValidationLayers) {
 		DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
 	}
 
-	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 	vkDestroyInstance(m_instance, nullptr);
 
 	glfwDestroyWindow(m_window);
 	glfwTerminate();
 }
 
-void Application::run() {
+bool Application::init() {
 	initWindow();
-	createInstance();
-	setupDebugMessenger();
-	createSurface();
+	if (!createInstance()) return false;
+	if (!setupDebugMessenger()) return false;
+
+	m_device = new Device();
+	if (!m_device->init(m_instance, m_window)) return false;
+
+	return true;
+}
+
+void Application::run() {
+	
 	//initVulkan();
 	mainLoop();
 	//cleanup();
@@ -228,14 +227,6 @@ bool Application::setupDebugMessenger() {
 
 	if (CreateDebugUtilsMessengerEXT(m_instance, &createInfo, nullptr, &m_debugMessenger) != VK_SUCCESS) {
 		std::cerr << "failed to set up debug messenger!" << std::endl;
-		return false;
-	}
-	return true;
-}
-
-bool Application::createSurface() {
-	if (glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface) != VK_SUCCESS) {
-		std::cerr << "failed to create window surface!" << std::endl;
 		return false;
 	}
 	return true;
