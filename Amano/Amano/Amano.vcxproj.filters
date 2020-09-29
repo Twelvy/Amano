@@ -45,6 +45,9 @@
     <ClCompile Include="Queue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Image.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -69,6 +72,9 @@
       <Filter>Header Files\Builder</Filter>
     </ClInclude>
     <ClInclude Include="Queue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Image.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

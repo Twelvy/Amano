@@ -159,6 +159,7 @@
     <ClCompile Include="Builder\PipelineLayoutBuilder.cpp" />
     <ClCompile Include="Builder\RenderPassBuilder.cpp" />
     <ClCompile Include="Device.cpp" />
+    <ClCompile Include="Image.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Queue.cpp" />
   </ItemGroup>
@@ -170,6 +171,7 @@
     <ClInclude Include="Builder\RenderPassBuilder.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Device.h" />
+    <ClInclude Include="Image.h" />
     <ClInclude Include="Queue.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

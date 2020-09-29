@@ -4,6 +4,7 @@
 #include "Builder/PipelineBuilder.h"
 #include "Builder/PipelineLayoutBuilder.h"
 #include "Builder/RenderPassBuilder.h"
+#include "Image.h"
 
 #include <iostream>
 #include <vector>
@@ -46,14 +47,62 @@ bool Application::init() {
 	m_device = new Device();
 	if (!m_device->init(m_window)) return false;
 
+	/////////////////////////////////////////////
 	// from here, this is a test application
+	/////////////////////////////////////////////
 
-	RenderPassBuilder renderPassBuilder;
 	// TODO: check the supported formats for depth
+	const VkFormat depthFormat = m_device->findSupportedFormat(
+		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+	);
+	const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
+	const VkFormat normalFormat = VK_FORMAT_R8G8B8A8_UNORM;
+
+	// create the depth image/buffer
+	Image depthImage(m_device);
+	depthImage.create(
+		m_width,
+		m_height,
+		1,
+		depthFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	VkImageView depthImageView = depthImage.createView(VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+	depthImage.transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
+
+	// create the color images/buffers
+	Image colorImage(m_device);
+	colorImage.create(
+		m_width,
+		m_height,
+		1,
+		colorFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	VkImageView colorImageView = colorImage.createView(VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+	Image normalImage(m_device);
+	normalImage.create(
+		m_width,
+		m_height,
+		1,
+		normalFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	VkImageView normalImageView = normalImage.createView(VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+	// create the pipeline
+	RenderPassBuilder renderPassBuilder;
 	renderPassBuilder
-		.addColorAttachment(VK_FORMAT_R8G8B8A8_UNORM) // attachment 0 for color
-		.addDepthAttachment(VK_FORMAT_D24_UNORM_S8_UINT) // attachment 1 for depth
-		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0 }, 1) // subpass 0
+		.addColorAttachment(colorFormat) // attachment 0 for color
+		.addColorAttachment(normalFormat) // attachment 1 for normal
+		.addDepthAttachment(depthFormat) // attachment 2 for depth
+		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0, 1 }, 2) // subpass 0
 		.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
 	VkRenderPass renderPass = renderPassBuilder.build(*m_device);
 	

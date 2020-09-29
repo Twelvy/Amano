@@ -312,6 +312,42 @@ bool Device::init(GLFWwindow* window) {
 		&& createSwapChain(window);
 }
 
+VkFormat Device::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+	for (VkFormat format : candidates) {
+		VkFormatProperties props;
+		vkGetPhysicalDeviceFormatProperties(m_physicalDevice, format, &props);
+
+		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+			return format;
+		}
+		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+			return format;
+		}
+	}
+
+	std::cerr << "failed to find supported format!" << std::endl;
+	return VK_FORMAT_UNDEFINED;
+}
+
+VkDeviceMemory Device::allocateMemory(VkMemoryRequirements requirements, VkMemoryPropertyFlags properties) {
+	VkMemoryAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = requirements.size;
+	allocInfo.memoryTypeIndex = findMemoryType(requirements.memoryTypeBits, properties);
+
+	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
+	if (vkAllocateMemory(m_device, &allocInfo, nullptr, &deviceMemory) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate image memory!");
+	}
+
+	return deviceMemory;
+}
+
+void Device::freeDeviceMemory(VkDeviceMemory deviceMemory) {
+	vkFreeMemory(m_device, deviceMemory, nullptr);
+}
+
+
 bool Device::createInstance() {
 	if (cEnableValidationLayers && !checkValidationLayerSupport()) {
 		std::cerr << "validation layers requested, but not available!" << std::endl;
@@ -536,6 +572,20 @@ bool Device::createSwapChain(GLFWwindow* window) {
 	m_swapChainExtent = extent;
 
 	return true;
+}
+
+uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(m_physicalDevice, &memProperties);
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
+		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+			return i;
+		}
+	}
+
+	std::cerr << "failed to find suitable memory type!" << std::endl;
+	return -1;
 }
 
 }
