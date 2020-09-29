@@ -17,6 +17,12 @@ const std::vector<const char*> cValidationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
 
+#ifdef NDEBUG
+constexpr bool cEnableValidationLayers = false;
+#else
+constexpr bool cEnableValidationLayers = true;
+#endif
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
