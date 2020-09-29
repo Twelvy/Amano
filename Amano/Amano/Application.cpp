@@ -7,6 +7,7 @@
 #include "Builder/RenderPassBuilder.h"
 #include "Image.h"
 #include "Model.h"
+#include "UniformBuffer.h"
 
 #include <iostream>
 #include <vector>
@@ -21,6 +22,12 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
 	app->notifyFramebufferResized(width, height);
 }
+
+struct UniformBufferObject {
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
+};
 
 }
 
@@ -138,10 +145,12 @@ bool Application::init() {
 		.setRasterizer(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 	VkPipeline pipeline = pipelineBuilder.build(pipelineLayout, renderPass, 0, 2, true);
 
+	// create the uniform buffer of the shader we are using
+	UniformBuffer<UniformBufferObject> uniformBuffer(m_device);
+
 	// load the model to display
 	Model model(m_device);
 	model.create("../../assets/models/viking_room.obj");
-
 	Image modelTexture(m_device);
 	modelTexture.create("../../assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
 

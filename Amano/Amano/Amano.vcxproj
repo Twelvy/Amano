@@ -177,6 +177,7 @@
     <ClInclude Include="Image.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="Queue.h" />
+    <ClInclude Include="UniformBuffer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
