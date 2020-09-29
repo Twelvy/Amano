@@ -340,30 +340,28 @@ bool Device::doesSuportBlitting(VkFormat format) {
 	return true;
 }
 
-BufferAndMemory Device::createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
-	BufferAndMemory result;
-
+bool Device::createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = size;
 	bufferInfo.usage = usage;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	if (vkCreateBuffer(m_device, &bufferInfo, nullptr, &result.buffer)) {
+	if (vkCreateBuffer(m_device, &bufferInfo, nullptr, &buffer)) {
 		std::cerr << "failed to create buffer!" << std::endl;
 	}
 
 	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(m_device, result.buffer, &memRequirements);
+	vkGetBufferMemoryRequirements(m_device, buffer, &memRequirements);
 
-	result.bufferMemory = allocateMemory(memRequirements, properties);
+	bufferMemory = allocateMemory(memRequirements, properties);
 	
-	if (vkBindBufferMemory(m_device, result.buffer, result.bufferMemory, 0) != VK_SUCCESS ) {
+	if (vkBindBufferMemory(m_device, buffer, bufferMemory, 0) != VK_SUCCESS ) {
 		std::cerr << "failed to bind buffer and memory!" << std::endl;
-		return BufferAndMemory();
+		return false;
 	}
 
-	return result;
+	return true;
 }
 
 void Device::destroyBuffer(VkBuffer buffer) {
@@ -386,6 +384,19 @@ VkDeviceMemory Device::allocateMemory(VkMemoryRequirements requirements, VkMemor
 
 void Device::freeDeviceMemory(VkDeviceMemory deviceMemory) {
 	vkFreeMemory(m_device, deviceMemory, nullptr);
+}
+
+void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, QueueType queueType) {
+	auto queue = getQueue(queueType);
+	VkCommandBuffer commandBuffer = queue->beginSingleTimeCommands();
+
+	VkBufferCopy copyRegion{};
+	copyRegion.srcOffset = 0;
+	copyRegion.dstOffset = 0;
+	copyRegion.size = size;
+	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+	queue->endSingleTimeCommands(commandBuffer);
 }
 
 

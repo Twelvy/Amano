@@ -51,6 +51,9 @@
     <ClCompile Include="Builder\FramebufferBuilder.cpp">
       <Filter>Source Files\Builder</Filter>
     </ClCompile>
+    <ClCompile Include="Model.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -82,6 +85,9 @@
     </ClInclude>
     <ClInclude Include="Builder\FramebufferBuilder.h">
       <Filter>Header Files\Builder</Filter>
+    </ClInclude>
+    <ClInclude Include="Model.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

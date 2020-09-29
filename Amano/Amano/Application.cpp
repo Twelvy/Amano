@@ -6,6 +6,7 @@
 #include "Builder/PipelineLayoutBuilder.h"
 #include "Builder/RenderPassBuilder.h"
 #include "Image.h"
+#include "Model.h"
 
 #include <iostream>
 #include <vector>
@@ -137,12 +138,18 @@ bool Application::init() {
 		.setRasterizer(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 	VkPipeline pipeline = pipelineBuilder.build(pipelineLayout, renderPass, 0, 2, true);
 
+	// load the model to display
+	Model model(m_device);
+	model.create("../../assets/models/viking_room.obj");
+
+	Image modelTexture(m_device);
+	modelTexture.create("../../assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
+
 	return true;
 }
 
 void Application::run() {
 	
-	//initVulkan();
 	mainLoop();
 	//cleanup();
 }

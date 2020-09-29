@@ -76,7 +76,7 @@ bool Image::create(const std::string& filename, Queue& queue) {
 	stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
 	if (!pixels) {
-		throw std::runtime_error("failed to load texture image!");
+		std::cerr << "failed to load texture image!" << std::endl;
 	}
 
 	VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * 4);
@@ -84,15 +84,20 @@ bool Image::create(const std::string& filename, Queue& queue) {
 	m_width = static_cast<uint32_t>(texWidth);
 	m_height = static_cast<uint32_t>(texHeight);
 
-	BufferAndMemory stagingBuffer = m_device->createBufferAndMemory(
+	VkBuffer stagingBuffer = VK_NULL_HANDLE;
+	VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
+	if (!m_device->createBufferAndMemory(
 		imageSize,
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer,
+		stagingBufferMemory))
+		return false;
 
 	void* data;
-	vkMapMemory(m_device->handle(), stagingBuffer.bufferMemory, 0, imageSize, 0, &data);
+	vkMapMemory(m_device->handle(), stagingBufferMemory, 0, imageSize, 0, &data);
 	memcpy(data, pixels, static_cast<size_t>(imageSize));
-	vkUnmapMemory(m_device->handle(), stagingBuffer.bufferMemory);
+	vkUnmapMemory(m_device->handle(), stagingBufferMemory);
 
 	stbi_image_free(pixels);
 
@@ -111,13 +116,13 @@ bool Image::create(const std::string& filename, Queue& queue) {
 		return false;
 
 	transitionLayout(queue, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copyBufferToImage(queue, stagingBuffer.buffer);
+	copyBufferToImage(queue, stagingBuffer);
 	//transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
 	//transitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, mipLevels);
 	generateMipmaps(queue);
 
-	m_device->destroyBuffer(stagingBuffer.buffer);
-	m_device->freeDeviceMemory(stagingBuffer.bufferMemory);
+	m_device->destroyBuffer(stagingBuffer);
+	m_device->freeDeviceMemory(stagingBufferMemory);
 
 	return true;
 }
