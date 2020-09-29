@@ -193,7 +193,7 @@ void Application::mainLoop() {
 		//drawFrame();
 	}
 
-	//vkDeviceWaitIdle(m_device);
+	m_device->waitIdle();
 }
 
 }

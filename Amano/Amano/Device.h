@@ -25,6 +25,8 @@ public:
 
 	VkDevice handle() { return m_device; };
 
+	void waitIdle();
+
 	Queue* getQueue(QueueType type) { return m_queues[static_cast<uint32_t>(type)]; }
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 	bool doesSuportBlitting(VkFormat format);

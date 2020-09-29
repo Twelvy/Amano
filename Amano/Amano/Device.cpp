@@ -314,6 +314,10 @@ bool Device::init(GLFWwindow* window) {
 		&& createDescriptorPool();
 }
 
+void Device::waitIdle() {
+	vkDeviceWaitIdle(m_device);
+}
+
 VkFormat Device::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
 	for (VkFormat format : candidates) {
 		VkFormatProperties props;
