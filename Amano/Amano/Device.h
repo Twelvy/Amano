@@ -14,6 +14,8 @@ public:
 
 	bool init(GLFWwindow* window);
 
+	VkDevice handle() { return m_device; };
+
 private:
 	bool createInstance();
 	bool setupDebugMessenger();

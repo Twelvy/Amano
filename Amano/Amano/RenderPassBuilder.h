@@ -1,0 +1,46 @@
+#pragma once
+
+#include "Config.h"
+
+#include <vector>
+
+namespace Amano {
+
+class RenderPassBuilder
+{
+private:
+	struct SubpassDescription
+	{
+		SubpassDescription(size_t colorCount)
+			: desc{}
+			, colorAttachmentReferences(colorCount)
+			, depthAttachmentReference{}
+		{
+		}
+
+		VkSubpassDescription desc;
+		std::vector<VkAttachmentReference> colorAttachmentReferences;
+		VkAttachmentReference depthAttachmentReference;
+	};
+
+public:
+	RenderPassBuilder();
+
+	// TODO: make those methods more versatile
+
+	RenderPassBuilder& addColorAttachment(VkFormat format);
+	RenderPassBuilder& addDepthAttachment(VkFormat format);
+
+	RenderPassBuilder& addSubpass(VkPipelineBindPoint bindPoint, std::vector<uint32_t> colorAttachmentIndices, uint32_t depthAttachmentIndex);
+
+	RenderPassBuilder& addSubpassDependency(uint32_t srcSubpass, uint32_t dstSubpass);
+
+	VkRenderPass build(VkDevice device);
+
+private:
+	std::vector<VkAttachmentDescription> m_attachments;
+	std::vector<SubpassDescription> m_subpasses;
+	std::vector<VkSubpassDependency> m_dependencies;
+};
+
+}

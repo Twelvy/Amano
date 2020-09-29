@@ -1,5 +1,7 @@
 #include "Application.h"
 
+#include "RenderPassBuilder.h"
+
 #include <iostream>
 #include <vector>
 
@@ -38,6 +40,17 @@ bool Application::init() {
 
 	m_device = new Device();
 	if (!m_device->init(m_window)) return false;
+
+	{
+		RenderPassBuilder renderPassBuilder;
+		// TODO: check the supported formats for depth
+		renderPassBuilder
+			.addColorAttachment(VK_FORMAT_R8G8B8A8_UNORM) // attachment 0 for color
+			.addDepthAttachment(VK_FORMAT_D24_UNORM_S8_UINT) // attachment 1 for depth
+			.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0 }, 1) // subpass 0
+			.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
+		VkRenderPass pass = renderPassBuilder.build(m_device->handle());
+	}
 
 	return true;
 }
