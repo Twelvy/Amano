@@ -28,6 +28,8 @@ public:
 	void waitIdle();
 
 	Queue* getQueue(QueueType type) { return m_queues[static_cast<uint32_t>(type)]; }
+	VkDescriptorPool getDescriptorPool() { return m_descriptorPool; }
+
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 	bool doesSuportBlitting(VkFormat format);
 

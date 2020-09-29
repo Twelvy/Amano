@@ -27,6 +27,8 @@ public:
 		m_device->freeDeviceMemory(m_bufferMemory);
 	}
 
+	VkBuffer getBuffer() { return m_buffer; }
+
 private:
 	Device* m_device;
 	VkBuffer m_buffer;

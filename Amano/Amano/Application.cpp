@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "Builder/DescriptorSetBuilder.h"
 #include "Builder/DescriptorSetLayoutBuilder.h"
 #include "Builder/FramebufferBuilder.h"
 #include "Builder/PipelineBuilder.h"
@@ -154,10 +155,18 @@ bool Application::init() {
 	model.create("../../assets/models/viking_room.obj");
 	Image modelTexture(m_device);
 	modelTexture.create("../../assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
+	VkImageView modelTextureView = modelTexture.createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	SamplerBuilder samplerBuilder;
 	samplerBuilder.setMaxLoad((float)modelTexture.getMipLevels());
 	VkSampler sampler = samplerBuilder.build(*m_device);
+
+	// update the descriptor set
+	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, descriptorSetLayout);
+	descriptorSetBuilder
+		.addUniformBuffer(uniformBuffer.getBuffer(), sizeof(UniformBufferObject), 0)
+		.addImage(sampler, modelTextureView, 1);
+	VkDescriptorSet descriptorSet = descriptorSetBuilder.buildAndUpdate();
 
 	return true;
 }
