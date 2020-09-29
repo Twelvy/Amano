@@ -15,6 +15,11 @@ enum class QueueType : uint32_t {
 	eCount = 2
 };
 
+struct BufferAndMemory {
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VkDeviceMemory bufferMemory = VK_NULL_HANDLE;
+};
+
 class Device {
 
 public:
@@ -27,7 +32,10 @@ public:
 
 	Queue* getQueue(QueueType type) { return m_queues[static_cast<uint32_t>(type)]; }
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	bool doesSuportBlitting(VkFormat format);
 
+	BufferAndMemory createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+	void destroyBuffer(VkBuffer buffer);
 	VkDeviceMemory allocateMemory(VkMemoryRequirements requirements, VkMemoryPropertyFlags properties);
 	void freeDeviceMemory(VkDeviceMemory deviceMemory);
 

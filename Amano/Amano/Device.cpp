@@ -329,6 +329,47 @@ VkFormat Device::findSupportedFormat(const std::vector<VkFormat>& candidates, Vk
 	return VK_FORMAT_UNDEFINED;
 }
 
+bool Device::doesSuportBlitting(VkFormat format) {
+	// Check if image format supports linear blitting
+	VkFormatProperties formatProperties;
+	vkGetPhysicalDeviceFormatProperties(m_physicalDevice, format, &formatProperties);
+	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+		std::cerr << "texture image format does not support linear blitting!" << std::endl;
+	}
+
+	return true;
+}
+
+BufferAndMemory Device::createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
+	BufferAndMemory result;
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = size;
+	bufferInfo.usage = usage;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	if (vkCreateBuffer(m_device, &bufferInfo, nullptr, &result.buffer)) {
+		std::cerr << "failed to create buffer!" << std::endl;
+	}
+
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements(m_device, result.buffer, &memRequirements);
+
+	result.bufferMemory = allocateMemory(memRequirements, properties);
+	
+	if (vkBindBufferMemory(m_device, result.buffer, result.bufferMemory, 0) != VK_SUCCESS ) {
+		std::cerr << "failed to bind buffer and memory!" << std::endl;
+		return BufferAndMemory();
+	}
+
+	return result;
+}
+
+void Device::destroyBuffer(VkBuffer buffer) {
+	vkDestroyBuffer(m_device, buffer, nullptr);
+}
+
 VkDeviceMemory Device::allocateMemory(VkMemoryRequirements requirements, VkMemoryPropertyFlags properties) {
 	VkMemoryAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -337,7 +378,7 @@ VkDeviceMemory Device::allocateMemory(VkMemoryRequirements requirements, VkMemor
 
 	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
 	if (vkAllocateMemory(m_device, &allocInfo, nullptr, &deviceMemory) != VK_SUCCESS) {
-		throw std::runtime_error("failed to allocate image memory!");
+		std::cerr << "failed to allocate image memory!" << std::endl;
 	}
 
 	return deviceMemory;

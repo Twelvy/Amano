@@ -71,8 +71,8 @@ bool Application::init() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VkImageView depthImageView = depthImage.createView(VK_IMAGE_ASPECT_DEPTH_BIT, 1);
-	depthImage.transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
+	VkImageView depthImageView = depthImage.createView(VK_IMAGE_ASPECT_DEPTH_BIT);
+	depthImage.transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	// create the color images/buffers
 	Image colorImage(m_device);
@@ -84,7 +84,7 @@ bool Application::init() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VkImageView colorImageView = colorImage.createView(VK_IMAGE_ASPECT_COLOR_BIT, 1);
+	VkImageView colorImageView = colorImage.createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	Image normalImage(m_device);
 	normalImage.create(
@@ -95,7 +95,7 @@ bool Application::init() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VkImageView normalImageView = normalImage.createView(VK_IMAGE_ASPECT_COLOR_BIT, 1);
+	VkImageView normalImageView = normalImage.createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// create the render pass
 	RenderPassBuilder renderPassBuilder;
