@@ -1,12 +1,21 @@
 #pragma once
 
 #include "Config.h"
+#include "Queue.h"
 
 #include <vector>
 
 namespace Amano {
 
 class Device {
+public:
+	enum class QueueType : uint32_t {
+		eGraphics = 0,
+		ePresent = 1,
+		// eCompute
+		// eTransfer
+		eCount = 2
+	};
 
 public:
 	Device();
@@ -16,14 +25,16 @@ public:
 
 	VkDevice handle() { return m_device; };
 
+	Queue* GetQueue(QueueType type) { return m_queues[static_cast<uint32_t>(type)]; }
+
 private:
 	bool createInstance();
 	bool setupDebugMessenger();
 	bool createSurface(GLFWwindow* window);
 	bool pickPhysicalDevice();
 	bool createLogicalDevice();
+	bool createQueues();
 	bool createSwapChain(GLFWwindow* window);
-	bool createCommandPool();
 
 private:
 	VkInstance m_instance;
@@ -36,12 +47,7 @@ private:
 	VkFormat m_swapChainImageFormat;
 	VkExtent2D m_swapChainExtent;
 
-	VkQueue m_graphicsQueue;
-	//VkQueue m_computeQueue;
-	//VkQueue m_transferQueue;
-	VkQueue m_presentQueue;
-
-	VkCommandPool m_graphicsQueueCommandPool;
+	Queue* m_queues[static_cast<uint32_t>(QueueType::eCount)];
 };
 
 }

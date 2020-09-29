@@ -281,16 +281,15 @@ Device::Device()
 	, m_swapChainImages()
 	, m_swapChainImageFormat{ VK_FORMAT_UNDEFINED }
 	, m_swapChainExtent{ 0, 0 }
-	, m_graphicsQueue{ VK_NULL_HANDLE }
-	//, m_computeQueue{ VK_NULL_HANDLE }
-	//, m_transferQueue{ VK_NULL_HANDLE }
-	, m_presentQueue{ VK_NULL_HANDLE }
-	, m_graphicsQueueCommandPool{ VK_NULL_HANDLE }
+	, m_queues{}
 {
+	for (int i = 0; i < static_cast<int>(QueueType::eCount); ++i)
+		m_queues[i] = nullptr;
 }
 
 Device::~Device() {
-	vkDestroyCommandPool(m_device, m_graphicsQueueCommandPool, nullptr);
+	for (int i = 0; i < static_cast<int>(QueueType::eCount); ++i)
+		delete m_queues[i];
 	
 	vkDestroyDevice(m_device, nullptr);
 
@@ -304,16 +303,14 @@ Device::~Device() {
 }
 
 bool Device::init(GLFWwindow* window) {
-
 	return createInstance()
 		&& setupDebugMessenger()
 		&& createSurface(window)
 		&& pickPhysicalDevice()
 		&& createLogicalDevice()
-		&& createSwapChain(window)
-		&& createCommandPool();
+		&& createQueues()
+		&& createSwapChain(window);
 }
-
 
 bool Device::createInstance() {
 	if (cEnableValidationLayers && !checkValidationLayerSupport()) {
@@ -472,10 +469,15 @@ bool Device::createLogicalDevice() {
 		return false;
 	}
 
-	vkGetDeviceQueue(m_device, indices.graphicsFamily.value(), 0, &m_graphicsQueue);
-	//vkGetDeviceQueue(m_device, indices.computeFamily.value(), 0, &m_computeQueue);
-	//vkGetDeviceQueue(m_device, indices.transferFamily.value(), 0, &m_transferQueue);
-	vkGetDeviceQueue(m_device, indices.presentFamily.value(), 0, &m_presentQueue);
+	return true;
+}
+
+bool Device::createQueues() {
+	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_physicalDevice, m_surface);
+
+	m_queues[static_cast<uint32_t>(QueueType::eGraphics)] = new Queue(this, queueFamilyIndices.graphicsFamily.value());
+	// TODO: compute and transfer
+	m_queues[static_cast<uint32_t>(QueueType::ePresent)] = new Queue(this, queueFamilyIndices.presentFamily.value());
 
 	return true;
 }
@@ -532,22 +534,6 @@ bool Device::createSwapChain(GLFWwindow* window) {
 	vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, m_swapChainImages.data());
 	m_swapChainImageFormat = surfaceFormat.format;
 	m_swapChainExtent = extent;
-
-	return true;
-}
-
-bool Device::createCommandPool() {
-	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_physicalDevice, m_surface);
-
-	VkCommandPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-	poolInfo.flags = 0; // Optional
-
-	if (vkCreateCommandPool(m_device, &poolInfo, nullptr, &m_graphicsQueueCommandPool) != VK_SUCCESS) {
-		std::cerr << "failed to create graphics queue command pool!" << std::endl;
-		return false;
-	}
 
 	return true;
 }
