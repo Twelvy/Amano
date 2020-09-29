@@ -12,15 +12,19 @@ public:
 	Device();
 	~Device();
 
-	bool init(VkInstance instance, GLFWwindow* window);
+	bool init(GLFWwindow* window);
 
 private:
-	bool createSurface(VkInstance instance, GLFWwindow* window);
-	bool pickPhysicalDevice(VkInstance instance);
+	bool createInstance();
+	bool setupDebugMessenger();
+	bool createSurface(GLFWwindow* window);
+	bool pickPhysicalDevice();
 	bool createLogicalDevice();
 	bool createSwapChain(GLFWwindow* window);
 
 private:
+	VkInstance m_instance;
+	VkDebugUtilsMessengerEXT m_debugMessenger;
 	VkSurfaceKHR m_surface;
 	VkPhysicalDevice m_physicalDevice;
 	VkDevice m_device;

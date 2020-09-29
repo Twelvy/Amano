@@ -15,17 +15,11 @@ public:
 
 private:
 	void initWindow();
-	bool createInstance();
-	bool setupDebugMessenger();
-
-	//void initVulkan();
 	void mainLoop();
 	//void cleanup();
 
 private:
 	GLFWwindow* m_window;
-	VkInstance m_instance;
-	VkDebugUtilsMessengerEXT m_debugMessenger;
 	Device* m_device;
 	bool m_framebufferResized;
 };
