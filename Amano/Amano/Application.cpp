@@ -1,7 +1,7 @@
 #include "Application.h"
 
-#include "DescriptorSetLayoutBuilder.h"
-#include "RenderPassBuilder.h"
+#include "Builder/DescriptorSetLayoutBuilder.h"
+#include "Builder/RenderPassBuilder.h"
 
 #include <iostream>
 #include <vector>

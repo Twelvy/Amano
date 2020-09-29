@@ -152,17 +152,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
-    <ClCompile Include="DescriptorSetLayoutBuilder.cpp" />
+    <ClCompile Include="Builder\DescriptorSetLayoutBuilder.cpp" />
+    <ClCompile Include="Builder\RenderPassBuilder.cpp" />
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="RenderPassBuilder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="Builder\DescriptorSetLayoutBuilder.h" />
+    <ClInclude Include="Builder\RenderPassBuilder.h" />
     <ClInclude Include="Config.h" />
-    <ClInclude Include="DescriptorSetLayoutBuilder.h" />
     <ClInclude Include="Device.h" />
-    <ClInclude Include="RenderPassBuilder.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

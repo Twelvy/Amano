@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Config.h"
-#include "Device.h"
+#include "../Config.h"
+#include "../Device.h"
 
 #include <vector>
 
