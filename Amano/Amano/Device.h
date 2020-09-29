@@ -23,6 +23,7 @@ private:
 	bool pickPhysicalDevice();
 	bool createLogicalDevice();
 	bool createSwapChain(GLFWwindow* window);
+	bool createCommandPool();
 
 private:
 	VkInstance m_instance;
@@ -39,6 +40,8 @@ private:
 	//VkQueue m_computeQueue;
 	//VkQueue m_transferQueue;
 	VkQueue m_presentQueue;
+
+	VkCommandPool m_graphicsQueueCommandPool;
 };
 
 }

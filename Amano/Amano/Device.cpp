@@ -285,11 +285,13 @@ Device::Device()
 	//, m_computeQueue{ VK_NULL_HANDLE }
 	//, m_transferQueue{ VK_NULL_HANDLE }
 	, m_presentQueue{ VK_NULL_HANDLE }
+	, m_graphicsQueueCommandPool{ VK_NULL_HANDLE }
 {
 }
 
 Device::~Device() {
-	// TODO: mode to destroy
+	vkDestroyCommandPool(m_device, m_graphicsQueueCommandPool, nullptr);
+	
 	vkDestroyDevice(m_device, nullptr);
 
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
@@ -308,7 +310,8 @@ bool Device::init(GLFWwindow* window) {
 		&& createSurface(window)
 		&& pickPhysicalDevice()
 		&& createLogicalDevice()
-		&& createSwapChain(window);
+		&& createSwapChain(window)
+		&& createCommandPool();
 }
 
 
@@ -529,6 +532,22 @@ bool Device::createSwapChain(GLFWwindow* window) {
 	vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, m_swapChainImages.data());
 	m_swapChainImageFormat = surfaceFormat.format;
 	m_swapChainExtent = extent;
+
+	return true;
+}
+
+bool Device::createCommandPool() {
+	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_physicalDevice, m_surface);
+
+	VkCommandPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+	poolInfo.flags = 0; // Optional
+
+	if (vkCreateCommandPool(m_device, &poolInfo, nullptr, &m_graphicsQueueCommandPool) != VK_SUCCESS) {
+		std::cerr << "failed to create graphics queue command pool!" << std::endl;
+		return false;
+	}
 
 	return true;
 }
