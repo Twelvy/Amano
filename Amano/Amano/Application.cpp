@@ -69,8 +69,8 @@ bool Application::init() {
 
 	PipelineBuilder pipelineBuilder(*m_device);
 	pipelineBuilder
-		.addShader("../compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)
-		.addShader("../compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
+		.addShader("../../compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)
+		.addShader("../../compiled_shaders/gbufferf.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
 		.setViewport(0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f)
 		.setScissor(0, 0, m_width, m_height)
 		.setRasterizer(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
