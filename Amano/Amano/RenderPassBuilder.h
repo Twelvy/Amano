@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Config.h"
+#include "Device.h"
 
 #include <vector>
 
@@ -35,7 +36,7 @@ public:
 
 	RenderPassBuilder& addSubpassDependency(uint32_t srcSubpass, uint32_t dstSubpass);
 
-	VkRenderPass build(VkDevice device);
+	VkRenderPass build(Device& device);
 
 private:
 	std::vector<VkAttachmentDescription> m_attachments;

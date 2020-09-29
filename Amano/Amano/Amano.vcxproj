@@ -152,6 +152,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="DescriptorSetLayoutBuilder.cpp" />
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="RenderPassBuilder.cpp" />
@@ -159,6 +160,7 @@
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="Config.h" />
+    <ClInclude Include="DescriptorSetLayoutBuilder.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="RenderPassBuilder.h" />
   </ItemGroup>

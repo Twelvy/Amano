@@ -73,7 +73,7 @@ RenderPassBuilder& RenderPassBuilder::addSubpassDependency(uint32_t srcSubpass, 
 	return *this;
 }
 
-VkRenderPass RenderPassBuilder::build(VkDevice device) {
+VkRenderPass RenderPassBuilder::build(Device& device) {
 	std::vector<VkSubpassDescription> subpasses;
 	subpasses.reserve(m_subpasses.size());
 	for (auto& desc : m_subpasses) {
@@ -90,7 +90,7 @@ VkRenderPass RenderPassBuilder::build(VkDevice device) {
 	renderPassInfo.pDependencies = m_dependencies.data();
 
 	VkRenderPass renderPass = VK_NULL_HANDLE;
-	if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+	if (vkCreateRenderPass(device.handle(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
 		std::cerr << "failed to create render pass!" << std::endl;
 	}
 
