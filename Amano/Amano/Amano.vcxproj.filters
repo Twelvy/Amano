@@ -30,11 +30,17 @@
     <ClCompile Include="Device.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RenderPassBuilder.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Builder\DescriptorSetLayoutBuilder.cpp">
+      <Filter>Source Files\Builder</Filter>
     </ClCompile>
-    <ClCompile Include="DescriptorSetLayoutBuilder.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Builder\PipelineBuilder.cpp">
+      <Filter>Source Files\Builder</Filter>
+    </ClCompile>
+    <ClCompile Include="Builder\RenderPassBuilder.cpp">
+      <Filter>Source Files\Builder</Filter>
+    </ClCompile>
+    <ClCompile Include="Builder\PipelineLayoutBuilder.cpp">
+      <Filter>Source Files\Builder</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -47,11 +53,17 @@
     <ClInclude Include="Config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RenderPassBuilder.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Builder\DescriptorSetLayoutBuilder.h">
+      <Filter>Header Files\Builder</Filter>
     </ClInclude>
-    <ClInclude Include="DescriptorSetLayoutBuilder.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Builder\PipelineBuilder.h">
+      <Filter>Header Files\Builder</Filter>
+    </ClInclude>
+    <ClInclude Include="Builder\RenderPassBuilder.h">
+      <Filter>Header Files\Builder</Filter>
+    </ClInclude>
+    <ClInclude Include="Builder\PipelineLayoutBuilder.h">
+      <Filter>Header Files\Builder</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
