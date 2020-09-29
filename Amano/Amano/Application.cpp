@@ -1,6 +1,7 @@
 #include "Application.h"
 
 #include "Builder/DescriptorSetLayoutBuilder.h"
+#include "Builder/FramebufferBuilder.h"
 #include "Builder/PipelineBuilder.h"
 #include "Builder/PipelineLayoutBuilder.h"
 #include "Builder/RenderPassBuilder.h"
@@ -96,7 +97,7 @@ bool Application::init() {
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	VkImageView normalImageView = normalImage.createView(VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-	// create the pipeline
+	// create the render pass
 	RenderPassBuilder renderPassBuilder;
 	renderPassBuilder
 		.addColorAttachment(colorFormat) // attachment 0 for color
@@ -106,16 +107,27 @@ bool Application::init() {
 		.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
 	VkRenderPass renderPass = renderPassBuilder.build(*m_device);
 	
+	// create the framebuffer
+	FramebufferBuilder framebufferBuilder;
+	framebufferBuilder
+		.addAttachment(colorImageView)
+		.addAttachment(normalImageView)
+		.addAttachment(depthImageView);
+	VkFramebuffer framebuffer = framebufferBuilder.build(*m_device, renderPass, m_width, m_height);
+
+	// create layout for the next pipeline
 	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
 	descriptorSetLayoutbuilder
 		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	VkDescriptorSetLayout descriptorSetLayout = descriptorSetLayoutbuilder.build(*m_device);
 	
+	// create pipeline layout
 	PipelineLayoutBuilder pipelineLayoutBuilder;
 	pipelineLayoutBuilder.addDescriptorSetLayout(descriptorSetLayout);
 	VkPipelineLayout pipelineLayout = pipelineLayoutBuilder.build(*m_device);
 
+	// create graphics pipeline
 	PipelineBuilder pipelineBuilder(*m_device);
 	pipelineBuilder
 		.addShader("../../compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)

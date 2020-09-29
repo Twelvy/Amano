@@ -155,6 +155,7 @@
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Builder\DescriptorSetLayoutBuilder.cpp" />
+    <ClCompile Include="Builder\FramebufferBuilder.cpp" />
     <ClCompile Include="Builder\PipelineBuilder.cpp" />
     <ClCompile Include="Builder\PipelineLayoutBuilder.cpp" />
     <ClCompile Include="Builder\RenderPassBuilder.cpp" />
@@ -166,6 +167,7 @@
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="Builder\DescriptorSetLayoutBuilder.h" />
+    <ClInclude Include="Builder\FramebufferBuilder.h" />
     <ClInclude Include="Builder\PipelineBuilder.h" />
     <ClInclude Include="Builder\PipelineLayoutBuilder.h" />
     <ClInclude Include="Builder\RenderPassBuilder.h" />
