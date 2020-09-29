@@ -281,6 +281,7 @@ Device::Device()
 	, m_swapChainImages()
 	, m_swapChainImageFormat{ VK_FORMAT_UNDEFINED }
 	, m_swapChainExtent{ 0, 0 }
+	, m_descriptorPool{ VK_NULL_HANDLE }
 	, m_queues{}
 {
 	for (int i = 0; i < static_cast<int>(QueueType::eCount); ++i)
@@ -309,7 +310,8 @@ bool Device::init(GLFWwindow* window) {
 		&& pickPhysicalDevice()
 		&& createLogicalDevice()
 		&& createQueues()
-		&& createSwapChain(window);
+		&& createSwapChain(window)
+		&& createDescriptorPool();
 }
 
 VkFormat Device::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
@@ -622,6 +624,34 @@ bool Device::createSwapChain(GLFWwindow* window) {
 	vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, m_swapChainImages.data());
 	m_swapChainImageFormat = surfaceFormat.format;
 	m_swapChainExtent = extent;
+
+	return true;
+}
+
+bool Device::createDescriptorPool() {
+	// NOTE: this is hardcoded for now.
+	// creates a pool of descriptors for uniform buffers, textures etc.
+	// each pool has one descriptor per swapchain image
+	std::array<VkDescriptorPoolSize, 3> poolSizes{};
+	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSizes[0].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
+	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	poolSizes[1].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
+	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	poolSizes[2].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
+	//poolSizes[3].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+	//poolSizes[3].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+	poolInfo.pPoolSizes = poolSizes.data();
+	poolInfo.maxSets = static_cast<uint32_t>(m_swapChainImages.size());
+
+	if (vkCreateDescriptorPool(m_device, &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS) {
+		std::cerr << "failed to create descriptor pool!" << std::endl;
+		return false;
+	}
 
 	return true;
 }

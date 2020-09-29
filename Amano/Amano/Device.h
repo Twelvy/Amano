@@ -44,6 +44,7 @@ private:
 	bool createLogicalDevice();
 	bool createQueues();
 	bool createSwapChain(GLFWwindow* window);
+	bool createDescriptorPool();
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -57,6 +58,7 @@ private:
 	std::vector<VkImage> m_swapChainImages;
 	VkFormat m_swapChainImageFormat;
 	VkExtent2D m_swapChainExtent;
+	VkDescriptorPool m_descriptorPool;
 
 	Queue* m_queues[static_cast<uint32_t>(QueueType::eCount)];
 };

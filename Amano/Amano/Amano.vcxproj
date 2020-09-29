@@ -159,6 +159,7 @@
     <ClCompile Include="Builder\PipelineBuilder.cpp" />
     <ClCompile Include="Builder\PipelineLayoutBuilder.cpp" />
     <ClCompile Include="Builder\RenderPassBuilder.cpp" />
+    <ClCompile Include="Builder\SamplerBuilder.cpp" />
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Image.cpp" />
     <ClCompile Include="main.cpp" />
@@ -172,6 +173,7 @@
     <ClInclude Include="Builder\PipelineBuilder.h" />
     <ClInclude Include="Builder\PipelineLayoutBuilder.h" />
     <ClInclude Include="Builder\RenderPassBuilder.h" />
+    <ClInclude Include="Builder\SamplerBuilder.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="Image.h" />

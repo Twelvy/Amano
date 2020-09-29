@@ -15,6 +15,10 @@ public:
 	Image(Device* device);
 	~Image();
 
+	uint32_t getWidth() const { return m_width; }
+	uint32_t getHeight() const { return m_height; }
+	uint32_t getMipLevels() const { return m_mipLevels; }
+
 	bool create(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
 	bool create(const std::string& filename, Queue& queue);
 	VkImageView createView(VkImageAspectFlags aspectFlags);

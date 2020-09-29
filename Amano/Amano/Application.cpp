@@ -5,6 +5,7 @@
 #include "Builder/PipelineBuilder.h"
 #include "Builder/PipelineLayoutBuilder.h"
 #include "Builder/RenderPassBuilder.h"
+#include "Builder/SamplerBuilder.h"
 #include "Image.h"
 #include "Model.h"
 #include "UniformBuffer.h"
@@ -153,6 +154,10 @@ bool Application::init() {
 	model.create("../../assets/models/viking_room.obj");
 	Image modelTexture(m_device);
 	modelTexture.create("../../assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
+
+	SamplerBuilder samplerBuilder;
+	samplerBuilder.setMaxLoad((float)modelTexture.getMipLevels());
+	VkSampler sampler = samplerBuilder.build(*m_device);
 
 	return true;
 }
