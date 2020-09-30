@@ -152,7 +152,7 @@ bool Application::init() {
 		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
 	);
 	const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
-	const VkFormat normalFormat = VK_FORMAT_R8G8B8A8_UNORM;
+	const VkFormat normalFormat = VK_FORMAT_R8G8B8A8_SNORM;
 	const VkFormat depthFormat2 = VK_FORMAT_R32_SFLOAT;
 
 	// create the depth image/buffer
