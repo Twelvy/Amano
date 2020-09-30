@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Config.h"
+#include "Extensions.h"
 #include "Queue.h"
 
 #include <vector>
@@ -24,6 +25,7 @@ public:
 	bool init(GLFWwindow* window);
 
 	VkDevice handle() { return m_device; };
+	const Extensions& getExtensions() const { return m_extensions; }
 
 	void waitIdle();
 	VkResult acquireNextImage(VkSemaphore semaphore, uint32_t& imageIndex);
@@ -68,6 +70,8 @@ private:
 	VkDescriptorPool m_descriptorPool;
 
 	Queue* m_queues[static_cast<uint32_t>(QueueType::eCount)];
+
+	Extensions m_extensions;
 };
 
 }

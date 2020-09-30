@@ -162,6 +162,7 @@
     <ClCompile Include="Builder\RenderPassBuilder.cpp" />
     <ClCompile Include="Builder\SamplerBuilder.cpp" />
     <ClCompile Include="Device.cpp" />
+    <ClCompile Include="Extensions.cpp" />
     <ClCompile Include="Image.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
@@ -178,6 +179,7 @@
     <ClInclude Include="Builder\SamplerBuilder.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Device.h" />
+    <ClInclude Include="Extensions.h" />
     <ClInclude Include="Image.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="Queue.h" />

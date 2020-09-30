@@ -65,6 +65,8 @@ Application::Application()
 	, m_blitFence{ VK_NULL_HANDLE }
 	, m_renderCommandBuffer{ VK_NULL_HANDLE }
 	, m_blitCommandBuffers()
+	, m_raytracingImage{ nullptr }
+	, m_raytracingImageView{ VK_NULL_HANDLE }
 {
 }
 
@@ -221,8 +223,10 @@ bool Application::init() {
 		.addImage(m_sampler, m_modelTextureView, 1);
 	m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
 
+	// for raytracing, we should create some objects
+	setupRaytracingData();
+
 	// create the sync objects
-	
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -245,6 +249,7 @@ bool Application::init() {
 		return false;
 	}
 
+	// record the commands that will be executed, rendering and blitting
 	recordRenderCommands();
 	recordBlitCommands();
 
@@ -492,6 +497,21 @@ void Application::recordBlitCommands() {
 
 		m_device->getQueue(QueueType::eGraphics)->endCommands(blitCommandBuffer);
 	}
+}
+
+void Application::setupRaytracingData() {
+	// this is the buffer storing the result of the raytracing
+	m_raytracingImage = new Image(m_device);
+	m_raytracingImage->create(
+		m_width,
+		m_height,
+		1,
+		VK_FORMAT_R8G8B8A8_UNORM,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	m_raytracingImageView = m_raytracingImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 }

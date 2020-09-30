@@ -10,7 +10,7 @@ namespace {
 
 const std::vector<const char*> cDeviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-	//VK_NV_RAY_TRACING_EXTENSION_NAME,
+	VK_NV_RAY_TRACING_EXTENSION_NAME,
 };
 
 const std::vector<const char*> cValidationLayers = {
@@ -283,6 +283,7 @@ Device::Device()
 	, m_swapChainExtent{ 0, 0 }
 	, m_descriptorPool{ VK_NULL_HANDLE }
 	, m_queues{}
+	, m_extensions()
 {
 	for (int i = 0; i < static_cast<int>(QueueType::eCount); ++i)
 		m_queues[i] = nullptr;
@@ -311,7 +312,8 @@ bool Device::init(GLFWwindow* window) {
 		&& createLogicalDevice()
 		&& createQueues()
 		&& createSwapChain(window)
-		&& createDescriptorPool();
+		&& createDescriptorPool()
+		&& m_extensions.queryRaytracingFunctions(m_instance);
 }
 
 void Device::waitIdle() {

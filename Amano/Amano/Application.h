@@ -32,6 +32,8 @@ private:
 	void recordRenderCommands();
 	void recordBlitCommands();
 
+	void setupRaytracingData();
+
 private:
 	GLFWwindow* m_window;
 	Device* m_device;
@@ -66,6 +68,10 @@ private:
 	// need more for double buffering
 	VkCommandBuffer m_renderCommandBuffer;
 	std::vector<VkCommandBuffer> m_blitCommandBuffers;
+
+	// for raytracing
+	Image* m_raytracingImage;
+	VkImageView m_raytracingImageView;
 };
 
 }

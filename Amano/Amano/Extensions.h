@@ -1,0 +1,24 @@
+#pragma once
+
+#include "Config.h"
+
+namespace Amano {
+
+class Extensions {
+public:
+	bool queryRaytracingFunctions(VkInstance instance);
+
+public:
+	PFN_vkCreateRayTracingPipelinesNV vkCreateRayTracingPipelinesNV;
+	PFN_vkCmdTraceRaysNV vkCmdTraceRaysNV;
+	PFN_vkBindAccelerationStructureMemoryNV vkBindAccelerationStructureMemoryNV;
+	PFN_vkCompileDeferredNV vkCompileDeferredNV;
+	PFN_vkCreateAccelerationStructureNV vkCreateAccelerationStructureNV;
+	PFN_vkGetAccelerationStructureMemoryRequirementsNV vkGetAccelerationStructureMemoryRequirementsNV;
+	PFN_vkGetAccelerationStructureHandleNV vkGetAccelerationStructureHandleNV;
+	PFN_vkCmdBuildAccelerationStructureNV vkCmdBuildAccelerationStructureNV;
+	PFN_vkGetRayTracingShaderGroupHandlesNV vkGetRayTracingShaderGroupHandlesNV;
+	PFN_vkGetPhysicalDeviceProperties2 vkGetPhysicalDeviceProperties2;
+};
+
+}
