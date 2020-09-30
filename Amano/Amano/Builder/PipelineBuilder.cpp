@@ -205,9 +205,9 @@ VkShaderModule PipelineBuilder::createShaderModule(const std::vector<char>& code
 	createInfo.codeSize = code.size();
 	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
-	VkShaderModule shaderModule;
+	VkShaderModule shaderModule = VK_NULL_HANDLE;
 	if (vkCreateShaderModule(m_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create shader module!");
+		std::cerr << "failed to create shader module!" << std::endl;
 	}
 
 	return shaderModule;
