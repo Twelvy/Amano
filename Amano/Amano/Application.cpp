@@ -292,6 +292,7 @@ void Application::mainLoop() {
 }
 
 void Application::drawFrame() {
+	// NOTE: this isn't useful now since we are waiting for the previous frame to finish to render the next one
 	vkWaitForFences(m_device->handle(), 1, &m_inFlightFences[(m_currentFrame + 1) % 2], VK_TRUE, UINT64_MAX);
 	vkWaitForFences(m_device->handle(), 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 	vkResetFences(m_device->handle(), 1, &m_inFlightFences[m_currentFrame]);
@@ -386,7 +387,33 @@ void Application::updateUniformBuffer() {
 void Application::recordRenderCommands() {
 	auto pQueue = m_device->getQueue(QueueType::eGraphics);
 	m_renderCommandBuffer = pQueue->beginCommands();
+	
+	VkImageMemoryBarrier barriers[2];
+	for (int i = 0; i < 2; ++i) {
+		barriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barriers[i].pNext = nullptr;
+		barriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barriers[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barriers[i].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barriers[i].subresourceRange.baseArrayLayer = 0;
+		barriers[i].subresourceRange.layerCount = 1;
+		barriers[i].subresourceRange.levelCount = 1;
+		barriers[i].subresourceRange.baseMipLevel = 0;
+		barriers[i].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		barriers[i].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		barriers[i].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barriers[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	}
 
+	barriers[0].image = m_colorImage->handle();
+	barriers[1].image = m_normalImage->handle();
+
+	vkCmdPipelineBarrier(m_renderCommandBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+		0, nullptr,
+		0, nullptr,
+		2, barriers);
+	
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = m_renderPass;
@@ -415,6 +442,8 @@ void Application::recordRenderCommands() {
 
 	vkCmdDrawIndexed(m_renderCommandBuffer, m_model->getIndiceCount(), 1, 0, 0, 0);
 
+	vkCmdEndRenderPass(m_renderCommandBuffer);
+
 	pQueue->endCommands(m_renderCommandBuffer);
 }
 
@@ -428,6 +457,7 @@ void Application::recordBlitCommands() {
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.pNext = nullptr;
 		barrier.image = m_device->getSwapChainImages()[i];
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -463,7 +493,7 @@ void Application::recordBlitCommands() {
 		blit.dstSubresource.layerCount = 1;
 
 		vkCmdBlitImage(blitCommandBuffer,
-			m_colorImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_normalImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
