@@ -61,6 +61,7 @@ Application::Application()
 	, m_descriptorSet{ VK_NULL_HANDLE }
 	, m_imageAvailableSemaphore{ VK_NULL_HANDLE }
 	, m_renderFinishedSemaphore{ VK_NULL_HANDLE }
+	, m_raytracingFinishedSemaphore{ VK_NULL_HANDLE }
 	, m_blitFinishedSemaphore{ VK_NULL_HANDLE }
 	, m_inFlightFence{ VK_NULL_HANDLE }
 	, m_blitFence{ VK_NULL_HANDLE }
@@ -94,9 +95,11 @@ Application::~Application() {
 		m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(cmd);
 
 	vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphore, nullptr);
+	vkDestroySemaphore(m_device->handle(), m_raytracingFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_renderFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_imageAvailableSemaphore, nullptr);
 	vkDestroyFence(m_device->handle(), m_inFlightFence, nullptr);
+	vkDestroyFence(m_device->handle(), m_raytracingFence, nullptr);
 	vkDestroyFence(m_device->handle(), m_blitFence, nullptr);
 
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_descriptorSet);
@@ -253,6 +256,7 @@ bool Application::init() {
 
 	if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
 		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_renderFinishedSemaphore) != VK_SUCCESS ||
+		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_raytracingFinishedSemaphore) != VK_SUCCESS ||
 		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_blitFinishedSemaphore) != VK_SUCCESS) {
 
 		std::cerr << "failed to create semaphores for a frame!" << std::endl;
@@ -260,6 +264,7 @@ bool Application::init() {
 	}
 	
 	if (vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_blitFence) != VK_SUCCESS ||
+		vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_raytracingFence) != VK_SUCCESS ||
 		vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_inFlightFence) != VK_SUCCESS) {
 
 		std::cerr << "failed to create fences for a frame!" << std::endl;
@@ -311,6 +316,7 @@ void Application::drawFrame() {
 	vkWaitForFences(m_device->handle(), 1, &m_blitFence, VK_TRUE, UINT64_MAX);
 	vkWaitForFences(m_device->handle(), 1, &m_inFlightFence, VK_TRUE, UINT64_MAX);
 	vkResetFences(m_device->handle(), 1, &m_blitFence);
+	vkResetFences(m_device->handle(), 1, &m_raytracingFence);
 	vkResetFences(m_device->handle(), 1, &m_inFlightFence);
 
 	uint32_t imageIndex;
@@ -326,6 +332,7 @@ void Application::drawFrame() {
 
 	updateUniformBuffer();
 
+	// submit rendering
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -335,36 +342,51 @@ void Application::drawFrame() {
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
-	//submitInfo.commandBufferCount = 1;
-	//submitInfo.pCommandBuffers = &m_renderCommandBuffer;
-	std::array<VkCommandBuffer, 2> commandBuffers = { m_renderCommandBuffer, m_raytracingCommandBuffer };
-	submitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
-	submitInfo.pCommandBuffers = commandBuffers.data();
-
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &m_renderCommandBuffer;
+	
 	VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	// submit rendering
 	auto pQueue = m_device->getQueue(QueueType::eGraphics);
-	if (!pQueue->submit(&submitInfo, m_blitFence))
+	if (!pQueue->submit(&submitInfo, m_raytracingFence))
+		return;
+
+	// submit raytracing
+	VkSubmitInfo raytracingSubmitInfo{};
+	raytracingSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	VkSemaphore raytracingWaitSemaphores[] = { m_renderFinishedSemaphore };
+	VkPipelineStageFlags raytracingWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	raytracingSubmitInfo.waitSemaphoreCount = 1;
+	raytracingSubmitInfo.pWaitSemaphores = raytracingWaitSemaphores;
+	raytracingSubmitInfo.pWaitDstStageMask = raytracingWaitStages;
+
+	raytracingSubmitInfo.commandBufferCount = 1;
+	raytracingSubmitInfo.pCommandBuffers = &m_raytracingCommandBuffer;
+
+	VkSemaphore raytracingSignalSemaphores[] = { m_raytracingFinishedSemaphore };
+	raytracingSubmitInfo.signalSemaphoreCount = 1;
+	raytracingSubmitInfo.pSignalSemaphores = raytracingSignalSemaphores;
+
+	if (!pQueue->submit(&raytracingSubmitInfo, m_blitFence))
 		return;
 
 	// submit blit
 	VkSubmitInfo blitSubmitInfo{};
 	blitSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	VkSemaphore blitWaitSemaphores[] = { m_renderFinishedSemaphore };
+	VkSemaphore blitWaitSemaphores[] = { m_raytracingFinishedSemaphore };
 	VkPipelineStageFlags blitWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	blitSubmitInfo.waitSemaphoreCount = 1;
 	blitSubmitInfo.pWaitSemaphores = blitWaitSemaphores;
 	blitSubmitInfo.pWaitDstStageMask = blitWaitStages;
-	std::array<VkCommandBuffer, 1> commandBuffers2 = { m_blitCommandBuffers[imageIndex] };
-	blitSubmitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers2.size());
-	blitSubmitInfo.pCommandBuffers = commandBuffers2.data();
+	blitSubmitInfo.commandBufferCount = 1;
+	blitSubmitInfo.pCommandBuffers = &m_blitCommandBuffers[imageIndex];
 
-	VkSemaphore signalSemaphores2[] = { m_blitFinishedSemaphore };
+	VkSemaphore blitSignalSemaphores[] = { m_blitFinishedSemaphore };
 	blitSubmitInfo.signalSemaphoreCount = 1;
-	blitSubmitInfo.pSignalSemaphores = signalSemaphores2;
+	blitSubmitInfo.pSignalSemaphores = blitSignalSemaphores;
 
 	if (!pQueue->submit(&blitSubmitInfo, m_inFlightFence))
 		return;
@@ -600,7 +622,6 @@ void Application::recordRaytracingCommands() {
 	barrier0.subresourceRange.layerCount = 1;
 	barrier0.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO
 	barrier0.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // TODO
-
 
 	vkCmdPipelineBarrier(
 		m_raytracingCommandBuffer,

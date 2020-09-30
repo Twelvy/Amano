@@ -70,8 +70,10 @@ private:
 	VkDescriptorSet m_descriptorSet;
 	VkSemaphore m_imageAvailableSemaphore;
 	VkSemaphore m_renderFinishedSemaphore;
+	VkSemaphore m_raytracingFinishedSemaphore;
 	VkSemaphore m_blitFinishedSemaphore;
 	VkFence m_inFlightFence;
+	VkFence m_raytracingFence;
 	VkFence m_blitFence;
 	// need more for double buffering
 	VkCommandBuffer m_renderCommandBuffer;
