@@ -112,6 +112,8 @@ Application::~Application() {
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_descriptorSetLayout, nullptr);
 	vkDestroyRenderPass(m_device->handle(), m_renderPass, nullptr);
 	vkDestroyFramebuffer(m_device->handle(), m_framebuffer, nullptr);
+	vkDestroyImageView(m_device->handle(), m_GBuffer.depthImageView, nullptr);
+	delete m_GBuffer.depthImage;
 	vkDestroyImageView(m_device->handle(), m_GBuffer.normalImageView, nullptr);
 	delete m_GBuffer.normalImage;
 	vkDestroyImageView(m_device->handle(), m_GBuffer.colorImageView, nullptr);
@@ -144,6 +146,7 @@ bool Application::init() {
 	);
 	const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
 	const VkFormat normalFormat = VK_FORMAT_R8G8B8A8_UNORM;
+	const VkFormat depthFormat2 = VK_FORMAT_R32_SFLOAT;
 
 	// create the depth image/buffer
 	m_depthImage = new Image(m_device);
@@ -181,13 +184,25 @@ bool Application::init() {
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	m_GBuffer.normalImageView = m_GBuffer.normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
+	m_GBuffer.depthImage = new Image(m_device);
+	m_GBuffer.depthImage->create(
+		m_width,
+		m_height,
+		1,
+		depthFormat2,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	m_GBuffer.depthImageView = m_GBuffer.depthImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+
 	// create the render pass
 	RenderPassBuilder renderPassBuilder;
 	renderPassBuilder
 		.addColorAttachment(colorFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) // attachment 0 for color
 		.addColorAttachment(normalFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) // attachment 1 for normal
+		.addColorAttachment(depthFormat2, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) // attachment 2 for depth
 		.addDepthAttachment(depthFormat) // attachment 3 for depth buffer
-		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0, 1 }, 2) // subpass 0
+		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0, 1, 2 }, 3) // subpass 0
 		.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
 	m_renderPass = renderPassBuilder.build(*m_device);
 	
@@ -196,7 +211,7 @@ bool Application::init() {
 	framebufferBuilder
 		.addAttachment(m_GBuffer.colorImageView)
 		.addAttachment(m_GBuffer.normalImageView)
-		//.addAttachment(m_GBuffer.depthImageView)
+		.addAttachment(m_GBuffer.depthImageView)
 		.addAttachment(m_depthImageView);
 	m_framebuffer = framebufferBuilder.build(*m_device, m_renderPass, m_width, m_height);
 
@@ -220,7 +235,7 @@ bool Application::init() {
 		.setViewport(0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f)
 		.setScissor(0, 0, m_width, m_height)
 		.setRasterizer(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-	m_pipeline = pipelineBuilder.build(m_pipelineLayout, m_renderPass, 0, 2, true);
+	m_pipeline = pipelineBuilder.build(m_pipelineLayout, m_renderPass, 0, 3, true);
 
 	// create the uniform buffer of the shader we are using
 	m_uniformBuffer = new UniformBuffer<PerFrameUniformBufferObject>(m_device);
@@ -426,8 +441,8 @@ void Application::recordRenderCommands() {
 	m_renderCommandBuffer = pQueue->beginCommands();
 
 	// transition images from blit to render target
-	VkImageMemoryBarrier barriers[2];
-	for (int i = 0; i < 2; ++i) {
+	std::array<VkImageMemoryBarrier, 3> barriers;
+	for (int i = 0; i < barriers.size(); ++i) {
 		barriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		barriers[i].pNext = nullptr;
 		barriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -445,12 +460,14 @@ void Application::recordRenderCommands() {
 
 	barriers[0].image = m_GBuffer.colorImage->handle();
 	barriers[1].image = m_GBuffer.normalImage->handle();
+	barriers[2].image = m_GBuffer.depthImage->handle();
 
 	vkCmdPipelineBarrier(m_renderCommandBuffer,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
 		0, nullptr,
 		0, nullptr,
-		2, barriers);
+		static_cast<uint32_t>(barriers.size()),
+		barriers.data());
 	
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -460,10 +477,11 @@ void Application::recordRenderCommands() {
 	renderPassInfo.renderArea.extent.width = m_width;
 	renderPassInfo.renderArea.extent.height = m_height;
 
-	std::array<VkClearValue, 3> clearValues{};
+	std::array<VkClearValue, 4> clearValues{};
 	clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
 	clearValues[1].color = { 0.0f, 0.0f, 0.0f, 0.0f };
-	clearValues[2].depthStencil = { 1.0f, 0 };
+	clearValues[2].color = { 1.0f, 0.0f, 0.0f, 0.0f };
+	clearValues[3].depthStencil = { 1.0f, 0 };
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
@@ -533,8 +551,9 @@ void Application::recordBlitCommands() {
 
 		vkCmdBlitImage(blitCommandBuffer,
 			//m_GBuffer.colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			//m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			//m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			//m_GBuffer.depthImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
 			VK_FILTER_LINEAR);

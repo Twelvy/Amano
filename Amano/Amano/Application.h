@@ -59,6 +59,8 @@ private:
 		VkImageView colorImageView = VK_NULL_HANDLE;
 		Image* normalImage = nullptr;
 		VkImageView normalImageView = VK_NULL_HANDLE;
+		Image* depthImage = nullptr;
+		VkImageView depthImageView = VK_NULL_HANDLE;
 	} m_GBuffer;
 	VkRenderPass m_renderPass;
 	VkFramebuffer m_framebuffer;
