@@ -63,6 +63,12 @@
     <ClCompile Include="Extensions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Builder\RaytracingPipelineBuilder.cpp">
+      <Filter>Source Files\Builder</Filter>
+    </ClCompile>
+    <ClCompile Include="Builder\PipelineBuilderBase.cpp">
+      <Filter>Source Files\Builder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -109,6 +115,12 @@
     </ClInclude>
     <ClInclude Include="Extensions.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Builder\RaytracingPipelineBuilder.h">
+      <Filter>Header Files\Builder</Filter>
+    </ClInclude>
+    <ClInclude Include="Builder\PipelineBuilderBase.h">
+      <Filter>Header Files\Builder</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

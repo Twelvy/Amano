@@ -1,4 +1,4 @@
-#include "PipelineBuilder.h"
+#include "RaytracingPipelineBuilder.h"
 
 #include <array>
 #include <fstream>
@@ -6,62 +6,20 @@
 
 namespace Amano {
 
-PipelineBuilder::PipelineBuilder(Device& device)
+RaytracingPipelineBuilder::RaytracingPipelineBuilder(Device& device)
 	: PipelineBuilderBase(device)
-	, m_viewport {}
-	, m_scissor{}
-	, m_rasterizer{}
 {
-	// set default
-	m_rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	m_rasterizer.depthClampEnable = VK_FALSE;
-	m_rasterizer.rasterizerDiscardEnable = VK_FALSE;
-	m_rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-	m_rasterizer.lineWidth = 1.0f;
-	m_rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	m_rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-	m_rasterizer.depthBiasEnable = VK_FALSE;
-	m_rasterizer.depthBiasConstantFactor = 0.0f; // Optional
-	m_rasterizer.depthBiasClamp = 0.0f; // Optional
-	m_rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
 }
 
-PipelineBuilder::~PipelineBuilder() {
+RaytracingPipelineBuilder::~RaytracingPipelineBuilder() {
 }
 
-PipelineBuilder& PipelineBuilder::addShader(const std::string& filename, VkShaderStageFlagBits stage) {
+RaytracingPipelineBuilder& RaytracingPipelineBuilder::addShader(const std::string& filename, VkShaderStageFlagBits stage) {
 	addShaderBase(filename, stage);
 	return *this;
 }
-
-PipelineBuilder& PipelineBuilder::setViewport(float x, float y, float width, float height, float minDepth, float maxDepth) {
-	m_viewport.x = x;
-	m_viewport.y = y;
-	m_viewport.width = width;
-	m_viewport.height = height;
-	m_viewport.minDepth = minDepth;
-	m_viewport.maxDepth = maxDepth;
-
-	return *this;
-}
-
-PipelineBuilder& PipelineBuilder::setScissor(int32_t x, int32_t y, uint32_t width, uint32_t height) {
-	m_scissor.offset.x = x;
-	m_scissor.offset.y = y;
-	m_scissor.extent.width = width;
-	m_scissor.extent.height = height;
-
-	return *this;
-}
-
-PipelineBuilder& PipelineBuilder::setRasterizer(VkCullModeFlagBits cullMode, VkFrontFace frontface) {
-	m_rasterizer.cullMode = cullMode;
-	m_rasterizer.frontFace = frontface;
-
-	return *this;
-}
-
-VkPipeline PipelineBuilder::build(VkPipelineLayout pipelineLayout, VkRenderPass renderPass, uint32_t subpass, uint32_t renderTargetCount, bool hasDepth) {
+/*
+VkPipeline RaytracingPipelineBuilder::build(VkPipelineLayout pipelineLayout, VkRenderPass renderPass, uint32_t subpass, uint32_t renderTargetCount, bool hasDepth) {
 
 	auto bindingDescription = Vertex::getBindingDescription();
 	auto attributeDescriptions = Vertex::getAttributeDescriptions();
@@ -160,5 +118,5 @@ VkPipeline PipelineBuilder::build(VkPipelineLayout pipelineLayout, VkRenderPass 
 
 	return pipeline;
 }
-
+*/
 }

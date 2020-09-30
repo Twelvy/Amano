@@ -2,13 +2,14 @@
 
 #include "../Config.h"
 #include "../Device.h"
+#include "PipelineBuilderBase.h"
 
 #include <string>
 #include <vector>
 
 namespace Amano {
 
-class PipelineBuilder
+class PipelineBuilder : public PipelineBuilderBase
 {
 public:
 	PipelineBuilder(Device& device);
@@ -24,12 +25,6 @@ public:
 	VkPipeline build(VkPipelineLayout pipelineLayout, VkRenderPass renderPass, uint32_t subpass, uint32_t renderTargetCount, bool hasDepth);
 
 private:
-	VkShaderModule createShaderModule(const std::vector<char>& code);
-
-private:
-	VkDevice m_device;
-	std::vector<VkShaderModule> m_shaderModules;
-	std::vector<VkPipelineShaderStageCreateInfo> m_shaderStages;
 	VkViewport m_viewport;
 	VkRect2D m_scissor;
 	VkPipelineRasterizationStateCreateInfo m_rasterizer;
