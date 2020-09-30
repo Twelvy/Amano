@@ -12,7 +12,7 @@ namespace Amano {
 class PipelineBuilder : public PipelineBuilderBase
 {
 public:
-	PipelineBuilder(Device& device);
+	PipelineBuilder(Device* device);
 	~PipelineBuilder();
 
 	PipelineBuilder& addShader(const std::string& filename, VkShaderStageFlagBits stage);

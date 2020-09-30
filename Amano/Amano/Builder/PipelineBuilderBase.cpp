@@ -28,8 +28,8 @@ namespace {
 
 namespace Amano {
 
-PipelineBuilderBase::PipelineBuilderBase(Device& device)
-	: m_device{ device.handle() }
+PipelineBuilderBase::PipelineBuilderBase(Device* device)
+	: m_device{ device }
 	, m_shaderModules()
 	, m_shaderStages()
 {
@@ -37,7 +37,7 @@ PipelineBuilderBase::PipelineBuilderBase(Device& device)
 
 PipelineBuilderBase::~PipelineBuilderBase() {
 	for (auto& module : m_shaderModules) {
-		vkDestroyShaderModule(m_device, module, nullptr);
+		vkDestroyShaderModule(m_device->handle(), module, nullptr);
 	}
 }
 
@@ -63,7 +63,7 @@ VkShaderModule PipelineBuilderBase::createShaderModule(const std::vector<char>& 
 	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
 	VkShaderModule shaderModule = VK_NULL_HANDLE;
-	if (vkCreateShaderModule(m_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+	if (vkCreateShaderModule(m_device->handle(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
 		std::cerr << "failed to create shader module!" << std::endl;
 	}
 

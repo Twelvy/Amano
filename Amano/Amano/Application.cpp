@@ -5,6 +5,7 @@
 #include "Builder/FramebufferBuilder.h"
 #include "Builder/PipelineBuilder.h"
 #include "Builder/PipelineLayoutBuilder.h"
+#include "Builder/RaytracingPipelineBuilder.h"
 #include "Builder/RenderPassBuilder.h"
 #include "Builder/SamplerBuilder.h"
 
@@ -67,6 +68,9 @@ Application::Application()
 	, m_blitCommandBuffers()
 	, m_raytracingImage{ nullptr }
 	, m_raytracingImageView{ VK_NULL_HANDLE }
+	, m_raytracingDescriptorSetLayout{ VK_NULL_HANDLE }
+	, m_raytracingPipelineLayout{ VK_NULL_HANDLE }
+	, m_raytracingPipeline{ VK_NULL_HANDLE }
 {
 }
 
@@ -193,7 +197,7 @@ bool Application::init() {
 	m_pipelineLayout = pipelineLayoutBuilder.build(*m_device);
 
 	// create graphics pipeline
-	PipelineBuilder pipelineBuilder(*m_device);
+	PipelineBuilder pipelineBuilder(m_device);
 	pipelineBuilder
 		.addShader("../../compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)
 		.addShader("../../compiled_shaders/gbufferf.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -510,8 +514,27 @@ void Application::setupRaytracingData() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
 	m_raytracingImageView = m_raytracingImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+
+	// create layout for the raytracing pipeline
+	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
+	descriptorSetLayoutbuilder
+		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV);
+	m_raytracingDescriptorSetLayout = descriptorSetLayoutbuilder.build(*m_device);
+
+	// create raytracing pipeline layout
+	PipelineLayoutBuilder pipelineLayoutBuilder;
+	pipelineLayoutBuilder.addDescriptorSetLayout(m_descriptorSetLayout);
+	m_raytracingPipelineLayout = pipelineLayoutBuilder.build(*m_device);
+
+	RaytracingPipelineBuilder raytracingPipelineBuilder(m_device);
+	raytracingPipelineBuilder
+		.addShader("../../compiled_shaders/raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addShader("../../compiled_shaders/miss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
+		.addShader("../../compiled_shaders/closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+	m_raytracingPipeline = raytracingPipelineBuilder.build(m_raytracingPipelineLayout, 1);
 }
 
 }

@@ -11,7 +11,7 @@ namespace Amano {
 class PipelineBuilderBase
 {
 public:
-	PipelineBuilderBase(Device& device);
+	PipelineBuilderBase(Device* device);
 	virtual ~PipelineBuilderBase();
 
 protected:
@@ -21,7 +21,7 @@ private:
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 
 protected:
-	VkDevice m_device;
+	Device* m_device;
 	std::vector<VkShaderModule> m_shaderModules;
 	std::vector<VkPipelineShaderStageCreateInfo> m_shaderStages;
 };

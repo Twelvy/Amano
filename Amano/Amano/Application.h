@@ -72,6 +72,9 @@ private:
 	// for raytracing
 	Image* m_raytracingImage;
 	VkImageView m_raytracingImageView;
+	VkDescriptorSetLayout m_raytracingDescriptorSetLayout;
+	VkPipelineLayout m_raytracingPipelineLayout;
+	VkPipeline m_raytracingPipeline;
 };
 
 }

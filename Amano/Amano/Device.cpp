@@ -671,15 +671,15 @@ bool Device::createDescriptorPool() {
 	// NOTE: this is hardcoded for now.
 	// creates a pool of descriptors for uniform buffers, textures etc.
 	// each pool has one descriptor per swapchain image
-	std::array<VkDescriptorPoolSize, 3> poolSizes{};
+	std::array<VkDescriptorPoolSize, 4> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[0].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	poolSizes[1].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	poolSizes[2].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
-	//poolSizes[3].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
-	//poolSizes[3].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
+	poolSizes[3].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+	poolSizes[3].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

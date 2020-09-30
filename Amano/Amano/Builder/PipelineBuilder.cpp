@@ -6,7 +6,7 @@
 
 namespace Amano {
 
-PipelineBuilder::PipelineBuilder(Device& device)
+PipelineBuilder::PipelineBuilder(Device* device)
 	: PipelineBuilderBase(device)
 	, m_viewport {}
 	, m_scissor{}
@@ -154,7 +154,7 @@ VkPipeline PipelineBuilder::build(VkPipelineLayout pipelineLayout, VkRenderPass 
 	pipelineInfo.basePipelineIndex = -1; // Optional
 
 	VkPipeline pipeline = VK_NULL_HANDLE;
-	if (vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
+	if (vkCreateGraphicsPipelines(m_device->handle(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
 		std::cerr << "failed to create graphics pipeline!" << std::endl;
 	}
 
