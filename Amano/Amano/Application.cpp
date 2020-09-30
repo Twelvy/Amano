@@ -424,7 +424,8 @@ void Application::updateUniformBuffer() {
 void Application::recordRenderCommands() {
 	auto pQueue = m_device->getQueue(QueueType::eGraphics);
 	m_renderCommandBuffer = pQueue->beginCommands();
-	
+
+	// transition images from blit to render target
 	VkImageMemoryBarrier barriers[2];
 	for (int i = 0; i < 2; ++i) {
 		barriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -479,6 +480,7 @@ void Application::recordRenderCommands() {
 
 	vkCmdDrawIndexed(m_renderCommandBuffer, m_model->getIndexCount(), 1, 0, 0, 0);
 
+	// the render pass will transition the framebuffer from render target to blit source
 	vkCmdEndRenderPass(m_renderCommandBuffer);
 
 	pQueue->endCommands(m_renderCommandBuffer);
@@ -620,8 +622,8 @@ void Application::recordRaytracingCommands() {
 	barrier0.subresourceRange.levelCount = 1;
 	barrier0.subresourceRange.baseArrayLayer = 0;
 	barrier0.subresourceRange.layerCount = 1;
-	barrier0.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO
-	barrier0.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // TODO
+	barrier0.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // TODO
+	barrier0.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO
 
 	vkCmdPipelineBarrier(
 		m_raytracingCommandBuffer,
@@ -642,6 +644,8 @@ void Application::recordRaytracingCommands() {
 		nullptr, 0, 0,
 		m_width, m_height, 1);
 
+
+	// transition image to be blitted
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
