@@ -72,6 +72,9 @@
     <ClCompile Include="Builder\RaytracingAccelerationStructureBuilder.cpp">
       <Filter>Source Files\Builder</Filter>
     </ClCompile>
+    <ClCompile Include="Builder\ShaderBindingTableBuilder.cpp">
+      <Filter>Source Files\Builder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -126,6 +129,9 @@
       <Filter>Header Files\Builder</Filter>
     </ClInclude>
     <ClInclude Include="Builder\RaytracingAccelerationStructureBuilder.h">
+      <Filter>Header Files\Builder</Filter>
+    </ClInclude>
+    <ClInclude Include="Builder\ShaderBindingTableBuilder.h">
       <Filter>Header Files\Builder</Filter>
     </ClInclude>
   </ItemGroup>

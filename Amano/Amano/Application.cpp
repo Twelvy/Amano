@@ -75,6 +75,7 @@ Application::Application()
 	, m_raytracingPipeline{ VK_NULL_HANDLE }
 	, m_raytracingDescriptorSet{ VK_NULL_HANDLE }
 	, m_accelerationStructures{}
+	, m_shaderBindingTables{}
 	, m_raytracingCommandBuffer{ VK_NULL_HANDLE }
 {
 }
@@ -82,6 +83,7 @@ Application::Application()
 Application::~Application() {
 	// TODO: wrap as many of those members into classes that know how to delete the Vulkan objects
 	m_accelerationStructures.clean(m_device);
+	m_shaderBindingTables.clean(m_device);
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_raytracingDescriptorSet);
 	vkDestroyPipeline(m_device->handle(), m_raytracingPipeline, nullptr);
 	vkDestroyPipelineLayout(m_device->handle(), m_raytracingPipelineLayout, nullptr);
@@ -590,11 +592,14 @@ void Application::setupRaytracingData() {
 		.addShader("../../compiled_shaders/closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
 	m_raytracingPipeline = raytracingPipelineBuilder.build(m_raytracingPipelineLayout, 1);
 
+	ShaderBindingTableBuilder sbtBuilder(m_device, m_raytracingPipeline);
+	sbtBuilder
+		.addShader(ShaderBindingTableBuilder::Stage::eRayGen, 0)
+		.addShader(ShaderBindingTableBuilder::Stage::eMiss, 1)
+		.addShader(ShaderBindingTableBuilder::Stage::eClosestHit, 2);
+	m_shaderBindingTables = sbtBuilder.build();
+
 	RaytracingAccelerationStructureBuilder accelerationStructureBuilder(m_device, m_raytracingPipeline);
-	accelerationStructureBuilder
-		.addRayGenShader(0)
-		.addMissShader(1)
-		.addClosestHitShader(2);
 	m_accelerationStructures = accelerationStructureBuilder.build(*m_model);
 
 	// update the descriptor set
@@ -638,9 +643,9 @@ void Application::recordRaytracingCommands() {
 	vkCmdBindDescriptorSets(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipelineLayout, 0, 1, &m_raytracingDescriptorSet, 0, nullptr);
 
 	m_device->getExtensions().vkCmdTraceRaysNV(m_raytracingCommandBuffer,
-		m_accelerationStructures.rgenShaderBindingTable.buffer, 0, // offset in the shader binding table for rgen
-		m_accelerationStructures.missShaderBindingTable.buffer, 0, m_accelerationStructures.missShaderBindingTable.groupSize, // offset and stride for miss
-		m_accelerationStructures.chitShaderBindingTable.buffer, 0, m_accelerationStructures.chitShaderBindingTable.groupSize, // offset and stride for chit
+		m_shaderBindingTables.rgenShaderBindingTable.buffer, 0, // offset in the shader binding table for rgen
+		m_shaderBindingTables.missShaderBindingTable.buffer, 0, m_shaderBindingTables.missShaderBindingTable.groupSize, // offset and stride for miss
+		m_shaderBindingTables.chitShaderBindingTable.buffer, 0, m_shaderBindingTables.chitShaderBindingTable.groupSize, // offset and stride for chit
 		nullptr, 0, 0,
 		m_width, m_height, 1);
 

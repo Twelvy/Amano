@@ -6,6 +6,7 @@
 #include "Model.h"
 #include "UniformBuffer.h"
 #include "Builder/RaytracingAccelerationStructureBuilder.h"
+#include "Builder/ShaderBindingTableBuilder.h"
 
 namespace Amano {
 
@@ -88,6 +89,7 @@ private:
 	VkPipeline m_raytracingPipeline;
 	VkDescriptorSet m_raytracingDescriptorSet;
 	AccelerationStructures m_accelerationStructures;
+	ShaderBindingTables m_shaderBindingTables;
 	VkCommandBuffer m_raytracingCommandBuffer;
 };
 

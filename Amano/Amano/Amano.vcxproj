@@ -164,6 +164,7 @@
     <ClCompile Include="Builder\RaytracingPipelineBuilder.cpp" />
     <ClCompile Include="Builder\RenderPassBuilder.cpp" />
     <ClCompile Include="Builder\SamplerBuilder.cpp" />
+    <ClCompile Include="Builder\ShaderBindingTableBuilder.cpp" />
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Extensions.cpp" />
     <ClCompile Include="Image.cpp" />
@@ -183,6 +184,7 @@
     <ClInclude Include="Builder\RaytracingPipelineBuilder.h" />
     <ClInclude Include="Builder\RenderPassBuilder.h" />
     <ClInclude Include="Builder\SamplerBuilder.h" />
+    <ClInclude Include="Builder\ShaderBindingTableBuilder.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="Extensions.h" />

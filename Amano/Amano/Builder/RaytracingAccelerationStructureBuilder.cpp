@@ -57,23 +57,9 @@ AccelerationStructureMemoryRequirements getMemoryRequirements(Amano::Device* dev
 	return req;
 }
 
-uint32_t computeGroupSize(uint32_t inlineSize, uint32_t handleSize, uint32_t alignment)
-{
-	uint32_t size = handleSize + inlineSize;
-	// roundup
-	return (size + (alignment - 1)) & ~(alignment - 1);
-}
-
 }
 
 namespace Amano {
-
-void ShaderBingTable::clean(Device* device) {
-	if (bufferMemory != VK_NULL_HANDLE)
-		device->freeDeviceMemory(bufferMemory);
-	if (buffer != VK_NULL_HANDLE)
-		device->destroyBuffer(buffer);
-}
 
 void AccelerationStructureInfo::clean(Device* device) {
 	device->getExtensions().vkDestroyAccelerationStructureNV(device->handle(), handle, nullptr);
@@ -89,10 +75,8 @@ void AccelerationStructureInfo::clean(Device* device) {
 }
 
 void AccelerationStructures::clean(Device* device) {
-	rgenShaderBindingTable.clean(device);
-	missShaderBindingTable.clean(device);
-	chitShaderBindingTable.clean(device);
-	//ahitShaderBindingTable.clean(device);
+	top.clean(device);
+	bottom.clean(device);
 };
 
 
@@ -101,52 +85,6 @@ RaytracingAccelerationStructureBuilder::RaytracingAccelerationStructureBuilder(D
 	, m_pipeline{ pipeline }
 	, m_accelerationStructures{}
 {
-}
-
-RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addRayGenShader(uint32_t index) {
-	setupShaderBindingTable(m_accelerationStructures.rgenShaderBindingTable, index);
-	return *this;
-}
-
-RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addMissShader(uint32_t index) {
-	setupShaderBindingTable(m_accelerationStructures.missShaderBindingTable, index);
-	return *this;
-}
-
-RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addClosestHitShader(uint32_t index) {
-	setupShaderBindingTable(m_accelerationStructures.chitShaderBindingTable,index);
-	return *this;
-}
-
-void RaytracingAccelerationStructureBuilder::setupShaderBindingTable(ShaderBingTable& table, uint32_t index) {
-	VkPhysicalDeviceRayTracingPropertiesNV physicalProperties = m_device->getRaytracingPhysicalProperties();
-
-	// TODO: round up to alignment
-	// allocate memory for all the shaders
-	// 0 for inline data
-	table.groupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
-	
-	m_device->createBufferAndMemory(
-		table.groupSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-		table.buffer,
-		table.bufferMemory);
-
-	// allocate a buffer as big as the number of shaders
-	// TODO: remove the hardcoded 3
-	std::vector<uint8_t> shaderHandleStorage(physicalProperties.shaderGroupHandleSize);
-
-	if (m_device->getExtensions().vkGetRayTracingShaderGroupHandlesNV(m_device->handle(), m_pipeline, index, 1, shaderHandleStorage.size(), shaderHandleStorage.data()) != VK_SUCCESS) {
-		std::cerr << "Cannot get shader group handles" << std::endl;
-	}
-
-	void* tmpData;
-	vkMapMemory(m_device->handle(), table.bufferMemory, 0, table.groupSize, 0, &tmpData);
-	uint8_t* pData = static_cast<uint8_t*>(tmpData);
-	// copy the handles
-	memset(pData, 0, table.groupSize);
-	memcpy(pData, shaderHandleStorage.data(), physicalProperties.shaderGroupHandleSize);
 }
 
 bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStructure(VkCommandBuffer cmd, Model& model) {
