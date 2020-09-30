@@ -12,6 +12,7 @@ Descriptor::Descriptor(VkBuffer buffer, VkDeviceSize range, uint32_t binding)
 	m_bufferInfo.offset = 0;
 	m_bufferInfo.range = range; // or VK_WHOLE_SIZE
 }
+
 Descriptor::Descriptor(VkSampler sampler, VkImageView imageView, uint32_t binding)
 	: m_type{ DescriptorType::eImage }
 	, m_binding{ binding }
@@ -21,8 +22,28 @@ Descriptor::Descriptor(VkSampler sampler, VkImageView imageView, uint32_t bindin
 	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
+Descriptor::Descriptor(VkImageView imageView, uint32_t binding)
+	: m_type{ DescriptorType::eStorageImage }
+	, m_binding{ binding }
+{
+	m_imageInfo.sampler = VK_NULL_HANDLE;
+	m_imageInfo.imageView = imageView;
+	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+}
+
+Descriptor::Descriptor(VkAccelerationStructureKHR* acc, uint32_t binding)
+	: m_type{ DescriptorType::eAccelerationStructure }
+	, m_binding{ binding }
+{
+	m_accelerationStructure.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_NV;
+	m_accelerationStructure.pNext = nullptr;
+	m_accelerationStructure.accelerationStructureCount = 1;
+	m_accelerationStructure.pAccelerationStructures = acc;
+}
+
 void Descriptor::set(VkWriteDescriptorSet& writeDescriptor, VkDescriptorSet descriptorSet) {
 	writeDescriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writeDescriptor.pNext = nullptr;
 	writeDescriptor.dstSet = descriptorSet;
 	writeDescriptor.dstBinding = m_binding;
 	writeDescriptor.dstArrayElement = 0; // only used with VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT 
@@ -40,6 +61,14 @@ void Descriptor::set(VkWriteDescriptorSet& writeDescriptor, VkDescriptorSet desc
 	case Amano::Descriptor::eImage:
 		writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		writeDescriptor.pImageInfo = &m_imageInfo;
+		break;
+	case Amano::Descriptor::eStorageImage:
+		writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		writeDescriptor.pImageInfo = &m_imageInfo;
+		break;
+	case Amano::Descriptor::eAccelerationStructure:
+		writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+		writeDescriptor.pNext = &m_accelerationStructure;
 		break;
 	default:
 		break;
@@ -71,6 +100,18 @@ DescriptorSetBuilder& DescriptorSetBuilder::addUniformBuffer(VkBuffer buffer, Vk
 
 DescriptorSetBuilder& DescriptorSetBuilder::addImage(VkSampler sampler, VkImageView imageView, uint32_t binding) {
 	m_descriptors.emplace_back(sampler, imageView, binding);
+
+	return *this;
+}
+
+DescriptorSetBuilder& DescriptorSetBuilder::addStorageImage(VkImageView imageView, uint32_t binding) {
+	m_descriptors.emplace_back(imageView, binding);
+
+	return *this;
+}
+
+DescriptorSetBuilder& DescriptorSetBuilder::addAccelerationStructure(VkAccelerationStructureKHR* acc, uint32_t binding) {
+	m_descriptors.emplace_back(acc, binding);
 
 	return *this;
 }

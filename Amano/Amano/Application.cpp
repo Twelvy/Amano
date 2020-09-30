@@ -5,7 +5,6 @@
 #include "Builder/FramebufferBuilder.h"
 #include "Builder/PipelineBuilder.h"
 #include "Builder/PipelineLayoutBuilder.h"
-#include "Builder/RaytracingAccelerationStructureBuilder.h"
 #include "Builder/RaytracingPipelineBuilder.h"
 #include "Builder/RenderPassBuilder.h"
 #include "Builder/SamplerBuilder.h"
@@ -69,9 +68,13 @@ Application::Application()
 	, m_blitCommandBuffers()
 	, m_raytracingImage{ nullptr }
 	, m_raytracingImageView{ VK_NULL_HANDLE }
+	, m_raytracingUniformBuffer{ nullptr }
 	, m_raytracingDescriptorSetLayout{ VK_NULL_HANDLE }
 	, m_raytracingPipelineLayout{ VK_NULL_HANDLE }
 	, m_raytracingPipeline{ VK_NULL_HANDLE }
+	, m_raytracingDescriptorSet{ VK_NULL_HANDLE }
+	, m_accelerationStructures{}
+	, m_raytracingCommandBuffer{ VK_NULL_HANDLE }
 {
 }
 
@@ -257,6 +260,7 @@ bool Application::init() {
 	// record the commands that will be executed, rendering and blitting
 	recordRenderCommands();
 	recordBlitCommands();
+	recordRaytracingCommands();
 
 	return true;
 }
@@ -322,8 +326,11 @@ void Application::drawFrame() {
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &m_renderCommandBuffer;
+	//submitInfo.commandBufferCount = 1;
+	//submitInfo.pCommandBuffers = &m_renderCommandBuffer;
+	std::array<VkCommandBuffer, 2> commandBuffers = { m_renderCommandBuffer, m_raytracingCommandBuffer };
+	submitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+	submitInfo.pCommandBuffers = commandBuffers.data();
 
 	VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
@@ -363,15 +370,24 @@ void Application::updateUniformBuffer() {
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 	
+	glm::vec3 origin = glm::vec3(2.8f * cosf(time), 2.8f * sinf(time), 2.0f);
+
 	PerFrameUniformBufferObject ubo{};
 	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.view = glm::lookAt(glm::vec3(2.8f * cosf(time), 2.8f * sinf(time), 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = glm::lookAt(origin, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), m_width / (float)m_height, 0.1f, 10.0f);
 
 	// TODO: fix this
 	ubo.proj[1][1] *= -1;
 
 	m_uniformBuffer->update(ubo);
+
+	RayParams rayUbo{};
+	rayUbo.viewInverse = glm::inverse(ubo.view);
+	rayUbo.projInverse = glm::inverse(ubo.proj);
+	rayUbo.rayOrigin = origin;
+
+	m_raytracingUniformBuffer->update(rayUbo);
 }
 
 void Application::recordRenderCommands() {
@@ -483,8 +499,9 @@ void Application::recordBlitCommands() {
 		blit.dstSubresource.layerCount = 1;
 
 		vkCmdBlitImage(blitCommandBuffer,
-			m_colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			//m_colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
 			VK_FILTER_LINEAR);
@@ -500,7 +517,7 @@ void Application::recordBlitCommands() {
 			0, nullptr,
 			1, &barrier);
 
-		m_device->getQueue(QueueType::eGraphics)->endCommands(blitCommandBuffer);
+		pQueue->endCommands(blitCommandBuffer);
 	}
 }
 
@@ -517,6 +534,9 @@ void Application::setupRaytracingData() {
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	m_raytracingImageView = m_raytracingImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
+	// uniform buffer
+	m_raytracingUniformBuffer = new UniformBuffer<RayParams>(m_device);
+	
 	// create layout for the raytracing pipeline
 	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
 	descriptorSetLayoutbuilder
@@ -542,7 +562,82 @@ void Application::setupRaytracingData() {
 		.addRayGenShader(0)
 		.addMissShader(1)
 		.addClosestHitShader(2);
-	accelerationStructureBuilder.build(*m_model, m_raytracingPipeline);
+	m_accelerationStructures = accelerationStructureBuilder.build(*m_model, m_raytracingPipeline);
+
+	// update the descriptor set
+	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_raytracingDescriptorSetLayout);
+	descriptorSetBuilder
+		.addAccelerationStructure(&m_accelerationStructures.top, 0)
+		.addStorageImage(m_raytracingImageView, 1)
+		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), sizeof(RayParams), 2);
+	m_raytracingDescriptorSet = descriptorSetBuilder.buildAndUpdate();
+}
+
+void Application::recordRaytracingCommands() {
+	Queue* pQueue = m_device->getQueue(QueueType::eGraphics);
+	m_raytracingCommandBuffer = pQueue->beginCommands();
+
+	VkImageMemoryBarrier barrier0{};
+	barrier0.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier0.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier0.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	barrier0.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier0.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier0.image = m_raytracingImage->handle();
+	barrier0.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier0.subresourceRange.baseMipLevel = 0;
+	barrier0.subresourceRange.levelCount = 1;
+	barrier0.subresourceRange.baseArrayLayer = 0;
+	barrier0.subresourceRange.layerCount = 1;
+	barrier0.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO
+	barrier0.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // TODO
+
+
+	vkCmdPipelineBarrier(
+		m_raytracingCommandBuffer,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier0);
+
+	vkCmdBindPipeline(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipeline);
+	vkCmdBindDescriptorSets(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipelineLayout, 0, 1, &m_raytracingDescriptorSet, 0, nullptr);
+
+	m_device->getExtensions().vkCmdTraceRaysNV(m_raytracingCommandBuffer,
+		m_accelerationStructures.bindingTable.shaderBindingTableBuffer, m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupOffset, // offset in the shader binding table for rgen
+		m_accelerationStructures.bindingTable.shaderBindingTableBuffer, m_accelerationStructures.raytracingShaderGroupIndices.missGroupOffset, m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize, // offset and stride for miss
+		m_accelerationStructures.bindingTable.shaderBindingTableBuffer, m_accelerationStructures.raytracingShaderGroupIndices.chitGroupOffset, m_accelerationStructures.raytracingShaderGroupIndices.chitGroupSize, // offset and stride for hit (2 shaders)
+		nullptr, 0, 0,
+		m_width, m_height, 1);
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = m_raytracingImage->handle();
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // TODO
+
+
+	vkCmdPipelineBarrier(
+		m_raytracingCommandBuffer,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier);
+
+	pQueue->endCommands(m_raytracingCommandBuffer);
 }
 
 }

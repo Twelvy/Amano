@@ -35,6 +35,21 @@ struct AccelerationStructures {
 	VkAccelerationStructureKHR bottom;
 	ShaderBindingTable bindingTable;
 
+	struct {
+		uint32_t raygen;
+		uint32_t miss;
+		uint32_t closestHit;
+		uint32_t anyHit;
+
+		uint32_t rgenGroupSize;
+		uint32_t missGroupSize;
+		uint32_t chitGroupSize;
+
+		uint32_t rgenGroupOffset;
+		uint32_t missGroupOffset;
+		uint32_t chitGroupOffset;
+	} raytracingShaderGroupIndices;
+
 	void clean(Device* device);
 };
 
@@ -55,20 +70,6 @@ private:
 private:
 	Device* m_device;
 	AccelerationStructures m_accelerationStructures;
-	struct {
-		uint32_t raygen;
-		uint32_t miss;
-		uint32_t closestHit;
-		uint32_t anyHit;
-
-		uint32_t rgenGroupSize;
-		uint32_t missGroupSize;
-		uint32_t chitGroupSize;
-
-		uint32_t rgenGroupOffset;
-		uint32_t missGroupOffset;
-		uint32_t chitGroupOffset;
-	} m_raytracingShaderGroupIndices;
 };
 
 }

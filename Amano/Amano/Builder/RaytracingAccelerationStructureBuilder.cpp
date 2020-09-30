@@ -96,22 +96,21 @@ void AccelerationStructures::clean(Device* device) {
 RaytracingAccelerationStructureBuilder::RaytracingAccelerationStructureBuilder(Device* device)
 	: m_device{ device }
 	, m_accelerationStructures{}
-	, m_raytracingShaderGroupIndices{}
 {
 }
 
 RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addRayGenShader(uint32_t index) {
-	m_raytracingShaderGroupIndices.raygen = index;
+	m_accelerationStructures.raytracingShaderGroupIndices.raygen = index;
 	return *this;
 }
 
 RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addMissShader(uint32_t index) {
-	m_raytracingShaderGroupIndices.miss = index;
+	m_accelerationStructures.raytracingShaderGroupIndices.miss = index;
 	return *this;
 }
 
 RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addClosestHitShader(uint32_t index) {
-	m_raytracingShaderGroupIndices.closestHit = index;
+	m_accelerationStructures.raytracingShaderGroupIndices.closestHit = index;
 	return *this;
 }
 
@@ -334,14 +333,14 @@ AccelerationStructures RaytracingAccelerationStructureBuilder::build(Model& mode
 	// TODO: round up to alignment
 	// allocate memory for all the shaders
 	// 0 for inline data
-	m_raytracingShaderGroupIndices.rgenGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
-	m_raytracingShaderGroupIndices.missGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
-	m_raytracingShaderGroupIndices.chitGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
-	m_raytracingShaderGroupIndices.rgenGroupOffset = 0;
-	m_raytracingShaderGroupIndices.missGroupOffset = m_raytracingShaderGroupIndices.rgenGroupSize;
-	m_raytracingShaderGroupIndices.chitGroupOffset = m_raytracingShaderGroupIndices.missGroupOffset + m_raytracingShaderGroupIndices.missGroupSize;
+	m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
+	m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
+	m_accelerationStructures.raytracingShaderGroupIndices.chitGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
+	m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupOffset = 0;
+	m_accelerationStructures.raytracingShaderGroupIndices.missGroupOffset = m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupSize;
+	m_accelerationStructures.raytracingShaderGroupIndices.chitGroupOffset = m_accelerationStructures.raytracingShaderGroupIndices.missGroupOffset + m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize;
 	//uint32_t ahitGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
-	uint32_t sbtSize = m_raytracingShaderGroupIndices.rgenGroupSize + m_raytracingShaderGroupIndices.missGroupSize + m_raytracingShaderGroupIndices.chitGroupSize;/* + m_raytracingShaderGroupIndices.ahitGroupSize*/;
+	uint32_t sbtSize = m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupSize + m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize + m_accelerationStructures.raytracingShaderGroupIndices.chitGroupSize;/* + m_raytracingShaderGroupIndices.ahitGroupSize*/;
 	
 	m_device->createBufferAndMemory(
 		sbtSize,
@@ -365,10 +364,10 @@ AccelerationStructures RaytracingAccelerationStructureBuilder::build(Model& mode
 	memset(pData, 0, sbtSize);
 	memcpy(pData, &shaderHandleStorage[0 * physicalProperties.shaderGroupHandleSize], physicalProperties.shaderGroupHandleSize); // rgen
 	// no inline data to copy
-	pData += m_raytracingShaderGroupIndices.rgenGroupSize;
+	pData += m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupSize;
 	memcpy(pData, &shaderHandleStorage[1 * physicalProperties.shaderGroupHandleSize], physicalProperties.shaderGroupHandleSize); // miss
 	// no inline data to copy
-	pData += m_raytracingShaderGroupIndices.missGroupSize;
+	pData += m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize;
 	memcpy(pData, &shaderHandleStorage[2 * physicalProperties.shaderGroupHandleSize], physicalProperties.shaderGroupHandleSize); // chit
 	// no inline data to copy
 	//pData += m_raytracingShaderGroupIndices.chitGroupSize;

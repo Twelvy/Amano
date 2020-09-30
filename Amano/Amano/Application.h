@@ -5,6 +5,7 @@
 #include "Image.h"
 #include "Model.h"
 #include "UniformBuffer.h"
+#include "Builder/RaytracingAccelerationStructureBuilder.h"
 
 namespace Amano {
 
@@ -12,6 +13,12 @@ struct PerFrameUniformBufferObject {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
+};
+
+struct RayParams {
+	glm::mat4 viewInverse;
+	glm::mat4 projInverse;
+	glm::vec3 rayOrigin;
 };
 
 class Application {
@@ -31,6 +38,7 @@ private:
 
 	void recordRenderCommands();
 	void recordBlitCommands();
+	void recordRaytracingCommands();
 
 	void setupRaytracingData();
 
@@ -72,9 +80,13 @@ private:
 	// for raytracing
 	Image* m_raytracingImage;
 	VkImageView m_raytracingImageView;
+	UniformBuffer<RayParams>* m_raytracingUniformBuffer;
 	VkDescriptorSetLayout m_raytracingDescriptorSetLayout;
 	VkPipelineLayout m_raytracingPipelineLayout;
 	VkPipeline m_raytracingPipeline;
+	VkDescriptorSet m_raytracingDescriptorSet;
+	AccelerationStructures m_accelerationStructures;
+	VkCommandBuffer m_raytracingCommandBuffer;
 };
 
 }
