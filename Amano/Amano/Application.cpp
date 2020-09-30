@@ -80,6 +80,15 @@ Application::Application()
 
 Application::~Application() {
 	// TODO: wrap as many of those members into classes that know how to delete the Vulkan objects
+	m_accelerationStructures.clean(m_device);
+	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_raytracingDescriptorSet);
+	vkDestroyPipeline(m_device->handle(), m_raytracingPipeline, nullptr);
+	vkDestroyPipelineLayout(m_device->handle(), m_raytracingPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(m_device->handle(), m_raytracingDescriptorSetLayout, nullptr);
+	delete m_raytracingUniformBuffer;
+	vkDestroyImageView(m_device->handle(), m_raytracingImageView, nullptr);
+	delete m_raytracingImage;
+
 	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
 	for (auto& cmd : m_blitCommandBuffers)
 		m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(cmd);
