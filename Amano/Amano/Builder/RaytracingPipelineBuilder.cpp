@@ -27,15 +27,15 @@ RaytracingPipelineBuilder& RaytracingPipelineBuilder::addShader(const std::strin
 	shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_NV;
 	if (stage == VK_SHADER_STAGE_RAYGEN_BIT_NV) {
 		shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_NV;
-		shaderGroupInfo.generalShader = static_cast<uint32_t>(m_shaderGroups.size());
+		shaderGroupInfo.generalShader = static_cast<uint32_t>(m_shaderGroups.size() - 1);
 	}
 	else if (stage == VK_SHADER_STAGE_MISS_BIT_NV) {
 		shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_NV;
-		shaderGroupInfo.generalShader = static_cast<uint32_t>(m_shaderGroups.size());
+		shaderGroupInfo.generalShader = static_cast<uint32_t>(m_shaderGroups.size() - 1);
 	}
 	else if (stage == VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV) {
 		shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_NV;
-		shaderGroupInfo.closestHitShader = static_cast<uint32_t>(m_shaderGroups.size());
+		shaderGroupInfo.closestHitShader = static_cast<uint32_t>(m_shaderGroups.size() - 1);
 	}
 
 	// TODO: handle more cases

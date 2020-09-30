@@ -26,6 +26,7 @@ public:
 
 	VkDevice handle() { return m_device; };
 	const Extensions& getExtensions() const { return m_extensions; }
+	VkPhysicalDeviceRayTracingPropertiesNV getRaytracingPhysicalProperties();
 
 	void waitIdle();
 	VkResult acquireNextImage(VkSemaphore semaphore, uint32_t& imageIndex);

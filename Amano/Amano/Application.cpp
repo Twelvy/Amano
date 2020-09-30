@@ -5,6 +5,7 @@
 #include "Builder/FramebufferBuilder.h"
 #include "Builder/PipelineBuilder.h"
 #include "Builder/PipelineLayoutBuilder.h"
+#include "Builder/RaytracingAccelerationStructureBuilder.h"
 #include "Builder/RaytracingPipelineBuilder.h"
 #include "Builder/RenderPassBuilder.h"
 #include "Builder/SamplerBuilder.h"
@@ -429,7 +430,7 @@ void Application::recordRenderCommands() {
 
 	vkCmdBindDescriptorSets(m_renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
-	vkCmdDrawIndexed(m_renderCommandBuffer, m_model->getIndiceCount(), 1, 0, 0, 0);
+	vkCmdDrawIndexed(m_renderCommandBuffer, m_model->getIndexCount(), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(m_renderCommandBuffer);
 
@@ -526,7 +527,7 @@ void Application::setupRaytracingData() {
 
 	// create raytracing pipeline layout
 	PipelineLayoutBuilder pipelineLayoutBuilder;
-	pipelineLayoutBuilder.addDescriptorSetLayout(m_descriptorSetLayout);
+	pipelineLayoutBuilder.addDescriptorSetLayout(m_raytracingDescriptorSetLayout);
 	m_raytracingPipelineLayout = pipelineLayoutBuilder.build(*m_device);
 
 	RaytracingPipelineBuilder raytracingPipelineBuilder(m_device);
@@ -535,6 +536,13 @@ void Application::setupRaytracingData() {
 		.addShader("../../compiled_shaders/miss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
 		.addShader("../../compiled_shaders/closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
 	m_raytracingPipeline = raytracingPipelineBuilder.build(m_raytracingPipelineLayout, 1);
+
+	RaytracingAccelerationStructureBuilder accelerationStructureBuilder(m_device);
+	accelerationStructureBuilder
+		.addRayGenShader(0)
+		.addMissShader(1)
+		.addClosestHitShader(2);
+	accelerationStructureBuilder.build(*m_model, m_raytracingPipeline);
 }
 
 }

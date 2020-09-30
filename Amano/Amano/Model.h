@@ -19,7 +19,8 @@ public:
 
 	VkBuffer getVertexBuffer() { return m_vertexBuffer; }
 	VkBuffer getIndexBuffer() { return m_indexBuffer; }
-	uint32_t getIndiceCount() { return static_cast<uint32_t>(m_indices.size()); }
+	uint32_t getVertexCount() { return static_cast<uint32_t>(m_vertices.size()); }
+	uint32_t getIndexCount() { return static_cast<uint32_t>(m_indices.size()); }
 
 private:
 	bool load(const std::string& filename);

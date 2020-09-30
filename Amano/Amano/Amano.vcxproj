@@ -160,6 +160,7 @@
     <ClCompile Include="Builder\PipelineBuilder.cpp" />
     <ClCompile Include="Builder\PipelineBuilderBase.cpp" />
     <ClCompile Include="Builder\PipelineLayoutBuilder.cpp" />
+    <ClCompile Include="Builder\RaytracingAccelerationStructureBuilder.cpp" />
     <ClCompile Include="Builder\RaytracingPipelineBuilder.cpp" />
     <ClCompile Include="Builder\RenderPassBuilder.cpp" />
     <ClCompile Include="Builder\SamplerBuilder.cpp" />
@@ -178,6 +179,7 @@
     <ClInclude Include="Builder\PipelineBuilder.h" />
     <ClInclude Include="Builder\PipelineBuilderBase.h" />
     <ClInclude Include="Builder\PipelineLayoutBuilder.h" />
+    <ClInclude Include="Builder\RaytracingAccelerationStructureBuilder.h" />
     <ClInclude Include="Builder\RaytracingPipelineBuilder.h" />
     <ClInclude Include="Builder\RenderPassBuilder.h" />
     <ClInclude Include="Builder\SamplerBuilder.h" />

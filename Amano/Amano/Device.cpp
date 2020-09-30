@@ -316,6 +316,18 @@ bool Device::init(GLFWwindow* window) {
 		&& m_extensions.queryRaytracingFunctions(m_instance);
 }
 
+VkPhysicalDeviceRayTracingPropertiesNV Device::getRaytracingPhysicalProperties() {
+	VkPhysicalDeviceRayTracingPropertiesNV physicalProperties{};
+	physicalProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
+	physicalProperties.pNext = nullptr;
+
+	VkPhysicalDeviceProperties2 props{};
+	props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	props.pNext = &physicalProperties;
+	vkGetPhysicalDeviceProperties2(m_physicalDevice, &props);
+	return physicalProperties;
+}
+
 void Device::waitIdle() {
 	vkDeviceWaitIdle(m_device);
 }
@@ -449,9 +461,9 @@ bool Device::createInstance() {
 
 	VkApplicationInfo appInfo = {};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "Amano";
+	appInfo.pApplicationName = "Amano Sample";
 	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.pEngineName = "No Engine";
+	appInfo.pEngineName = "Amano Engine";
 	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 	appInfo.apiVersion = VK_API_VERSION_1_2;
 
