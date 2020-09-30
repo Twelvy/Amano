@@ -590,17 +590,17 @@ void Application::setupRaytracingData() {
 		.addShader("../../compiled_shaders/closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
 	m_raytracingPipeline = raytracingPipelineBuilder.build(m_raytracingPipelineLayout, 1);
 
-	RaytracingAccelerationStructureBuilder accelerationStructureBuilder(m_device);
+	RaytracingAccelerationStructureBuilder accelerationStructureBuilder(m_device, m_raytracingPipeline);
 	accelerationStructureBuilder
 		.addRayGenShader(0)
 		.addMissShader(1)
 		.addClosestHitShader(2);
-	m_accelerationStructures = accelerationStructureBuilder.build(*m_model, m_raytracingPipeline);
+	m_accelerationStructures = accelerationStructureBuilder.build(*m_model);
 
 	// update the descriptor set
 	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_raytracingDescriptorSetLayout);
 	descriptorSetBuilder
-		.addAccelerationStructure(&m_accelerationStructures.top, 0)
+		.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
 		.addStorageImage(m_raytracingImageView, 1)
 		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), sizeof(RayParams), 2);
 	m_raytracingDescriptorSet = descriptorSetBuilder.buildAndUpdate();
@@ -638,9 +638,9 @@ void Application::recordRaytracingCommands() {
 	vkCmdBindDescriptorSets(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipelineLayout, 0, 1, &m_raytracingDescriptorSet, 0, nullptr);
 
 	m_device->getExtensions().vkCmdTraceRaysNV(m_raytracingCommandBuffer,
-		m_accelerationStructures.bindingTable.shaderBindingTableBuffer, m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupOffset, // offset in the shader binding table for rgen
-		m_accelerationStructures.bindingTable.shaderBindingTableBuffer, m_accelerationStructures.raytracingShaderGroupIndices.missGroupOffset, m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize, // offset and stride for miss
-		m_accelerationStructures.bindingTable.shaderBindingTableBuffer, m_accelerationStructures.raytracingShaderGroupIndices.chitGroupOffset, m_accelerationStructures.raytracingShaderGroupIndices.chitGroupSize, // offset and stride for hit (2 shaders)
+		m_accelerationStructures.rgenShaderBindingTable.buffer, 0, // offset in the shader binding table for rgen
+		m_accelerationStructures.missShaderBindingTable.buffer, 0, m_accelerationStructures.missShaderBindingTable.groupSize, // offset and stride for miss
+		m_accelerationStructures.chitShaderBindingTable.buffer, 0, m_accelerationStructures.chitShaderBindingTable.groupSize, // offset and stride for chit
 		nullptr, 0, 0,
 		m_width, m_height, 1);
 

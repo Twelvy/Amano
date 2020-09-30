@@ -68,50 +68,85 @@ uint32_t computeGroupSize(uint32_t inlineSize, uint32_t handleSize, uint32_t ali
 
 namespace Amano {
 
-void RaytracingBuffers::clean(Device* device) {
+void ShaderBingTable::clean(Device* device) {
+	if (bufferMemory != VK_NULL_HANDLE)
+		device->freeDeviceMemory(bufferMemory);
+	if (buffer != VK_NULL_HANDLE)
+		device->destroyBuffer(buffer);
+}
+
+void AccelerationStructureInfo::clean(Device* device) {
+	device->getExtensions().vkDestroyAccelerationStructureNV(device->handle(), handle, nullptr);
 	device->freeDeviceMemory(resultMemory);
 	device->freeDeviceMemory(buildMemory);
-	device->freeDeviceMemory(updateMemory);
 	device->destroyBuffer(result);
 	device->destroyBuffer(build);
-	device->destroyBuffer(update);
-};
 
-void ShaderBindingTable::clean(Device* device) {
-	bottom.clean(device);
-	top.clean(device);
-	device->freeDeviceMemory(topInstanceBufferMemory);
-	device->freeDeviceMemory(shaderBindingTableBufferMemory);
-	device->destroyBuffer(topInstanceBuffer);
-	device->destroyBuffer(shaderBindingTableBuffer);
-};
+	if (topInstanceMemory != VK_NULL_HANDLE)
+		device->freeDeviceMemory(topInstanceMemory);
+	if (topInstance != VK_NULL_HANDLE)
+		device->destroyBuffer(topInstance);
+}
 
 void AccelerationStructures::clean(Device* device) {
-	device->getExtensions().vkDestroyAccelerationStructureNV(device->handle(), top, nullptr);
-	device->getExtensions().vkDestroyAccelerationStructureNV(device->handle(), bottom, nullptr);
-	bindingTable.clean(device);
+	rgenShaderBindingTable.clean(device);
+	missShaderBindingTable.clean(device);
+	chitShaderBindingTable.clean(device);
+	//ahitShaderBindingTable.clean(device);
 };
 
 
-RaytracingAccelerationStructureBuilder::RaytracingAccelerationStructureBuilder(Device* device)
+RaytracingAccelerationStructureBuilder::RaytracingAccelerationStructureBuilder(Device* device, VkPipeline pipeline)
 	: m_device{ device }
+	, m_pipeline{ pipeline }
 	, m_accelerationStructures{}
 {
 }
 
 RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addRayGenShader(uint32_t index) {
-	m_accelerationStructures.raytracingShaderGroupIndices.raygen = index;
+	setupShaderBindingTable(m_accelerationStructures.rgenShaderBindingTable, index);
 	return *this;
 }
 
 RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addMissShader(uint32_t index) {
-	m_accelerationStructures.raytracingShaderGroupIndices.miss = index;
+	setupShaderBindingTable(m_accelerationStructures.missShaderBindingTable, index);
 	return *this;
 }
 
 RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addClosestHitShader(uint32_t index) {
-	m_accelerationStructures.raytracingShaderGroupIndices.closestHit = index;
+	setupShaderBindingTable(m_accelerationStructures.chitShaderBindingTable,index);
 	return *this;
+}
+
+void RaytracingAccelerationStructureBuilder::setupShaderBindingTable(ShaderBingTable& table, uint32_t index) {
+	VkPhysicalDeviceRayTracingPropertiesNV physicalProperties = m_device->getRaytracingPhysicalProperties();
+
+	// TODO: round up to alignment
+	// allocate memory for all the shaders
+	// 0 for inline data
+	table.groupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
+	
+	m_device->createBufferAndMemory(
+		table.groupSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+		table.buffer,
+		table.bufferMemory);
+
+	// allocate a buffer as big as the number of shaders
+	// TODO: remove the hardcoded 3
+	std::vector<uint8_t> shaderHandleStorage(physicalProperties.shaderGroupHandleSize);
+
+	if (m_device->getExtensions().vkGetRayTracingShaderGroupHandlesNV(m_device->handle(), m_pipeline, index, 1, shaderHandleStorage.size(), shaderHandleStorage.data()) != VK_SUCCESS) {
+		std::cerr << "Cannot get shader group handles" << std::endl;
+	}
+
+	void* tmpData;
+	vkMapMemory(m_device->handle(), table.bufferMemory, 0, table.groupSize, 0, &tmpData);
+	uint8_t* pData = static_cast<uint8_t*>(tmpData);
+	// copy the handles
+	memset(pData, 0, table.groupSize);
+	memcpy(pData, shaderHandleStorage.data(), physicalProperties.shaderGroupHandleSize);
 }
 
 bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStructure(VkCommandBuffer cmd, Model& model) {
@@ -150,31 +185,31 @@ bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStruct
 	bottomAccelerationInfo.info.instanceCount = 0;
 	bottomAccelerationInfo.info.pGeometries = &geometry;
 
-	if (m_device->getExtensions().vkCreateAccelerationStructureNV(m_device->handle(), &bottomAccelerationInfo, nullptr, &m_accelerationStructures.bottom) != VK_SUCCESS) {
+	if (m_device->getExtensions().vkCreateAccelerationStructureNV(m_device->handle(), &bottomAccelerationInfo, nullptr, &m_accelerationStructures.bottom.handle) != VK_SUCCESS) {
 		std::cerr << "failed to create bottom acceleration structure!" << std::endl;
 		return false;
 	}
 
-	auto requirements = getMemoryRequirements(m_device, m_accelerationStructures.bottom);
+	auto requirements = getMemoryRequirements(m_device, m_accelerationStructures.bottom.handle);
 
 	m_device->createBufferAndMemory(
 		requirements.result.size,
 		VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		m_accelerationStructures.bindingTable.bottom.result,
-		m_accelerationStructures.bindingTable.bottom.resultMemory);
+		m_accelerationStructures.bottom.result,
+		m_accelerationStructures.bottom.resultMemory);
 	m_device->createBufferAndMemory(
 		requirements.build.size,
 		VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		m_accelerationStructures.bindingTable.bottom.build,
-		m_accelerationStructures.bindingTable.bottom.buildMemory);
+		m_accelerationStructures.bottom.build,
+		m_accelerationStructures.bottom.buildMemory);
 	
 	VkBindAccelerationStructureMemoryInfoNV bindInfo = {};
 	bindInfo.sType = VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_NV;
 	bindInfo.pNext = nullptr;
-	bindInfo.accelerationStructure = m_accelerationStructures.bottom;
-	bindInfo.memory = m_accelerationStructures.bindingTable.bottom.resultMemory;
+	bindInfo.accelerationStructure = m_accelerationStructures.bottom.handle;
+	bindInfo.memory = m_accelerationStructures.bottom.resultMemory;
 	bindInfo.memoryOffset = 0;
 	bindInfo.deviceIndexCount = 0;
 	bindInfo.pDeviceIndices = nullptr;
@@ -199,9 +234,9 @@ bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStruct
 		nullptr,
 		0,
 		false,
-		m_accelerationStructures.bottom,
+		m_accelerationStructures.bottom.handle,
 		nullptr,
-		m_accelerationStructures.bindingTable.bottom.build,
+		m_accelerationStructures.bottom.build,
 		0);
 
 	return true;
@@ -220,13 +255,13 @@ bool RaytracingAccelerationStructureBuilder::createTopLevelAccelerationStructure
 	topAccelerationInfo.info.instanceCount = 1;
 	topAccelerationInfo.info.pGeometries = nullptr;
 
-	if (m_device->getExtensions().vkCreateAccelerationStructureNV(m_device->handle(), &topAccelerationInfo, nullptr, &m_accelerationStructures.top) != VK_SUCCESS) {
+	if (m_device->getExtensions().vkCreateAccelerationStructureNV(m_device->handle(), &topAccelerationInfo, nullptr, &m_accelerationStructures.top.handle) != VK_SUCCESS) {
 		std::cerr << "failed to create top acceleration structure!" << std::endl;
 		return false;
 	}
 
 	uint64_t handle = 0;
-	if (m_device->getExtensions().vkGetAccelerationStructureHandleNV(m_device->handle(), m_accelerationStructures.bottom, sizeof(uint64_t), &handle) != VK_SUCCESS) {
+	if (m_device->getExtensions().vkGetAccelerationStructureHandleNV(m_device->handle(), m_accelerationStructures.bottom.handle, sizeof(uint64_t), &handle) != VK_SUCCESS) {
 		std::cerr << "failed to get bottom acceleration structure handle!" << std::endl;
 		return false;
 	}
@@ -241,37 +276,37 @@ bool RaytracingAccelerationStructureBuilder::createTopLevelAccelerationStructure
 	geometryInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV; // Disable culling - more fine control could be provided by the application
 	geometryInstance.accelerationStructureHandle = handle;
 
-	auto requirements = getMemoryRequirements(m_device, m_accelerationStructures.top);
+	auto requirements = getMemoryRequirements(m_device, m_accelerationStructures.top.handle);
 
 	m_device->createBufferAndMemory(
 		requirements.result.size,
 		VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		m_accelerationStructures.bindingTable.top.result,
-		m_accelerationStructures.bindingTable.top.resultMemory);
+		m_accelerationStructures.top.result,
+		m_accelerationStructures.top.resultMemory);
 	m_device->createBufferAndMemory(
 		requirements.build.size,
 		VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		m_accelerationStructures.bindingTable.top.build,
-		m_accelerationStructures.bindingTable.top.buildMemory);
+		m_accelerationStructures.top.build,
+		m_accelerationStructures.top.buildMemory);
 	m_device->createBufferAndMemory(
 		sizeof(VkGeometryInstance) * 1,
 		VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		m_accelerationStructures.bindingTable.topInstanceBuffer,
-		m_accelerationStructures.bindingTable.topInstanceBufferMemory);
+		m_accelerationStructures.top.topInstance,
+		m_accelerationStructures.top.topInstanceMemory);
 
 	void* pInstances;
-	vkMapMemory(m_device->handle(), m_accelerationStructures.bindingTable.topInstanceBufferMemory, 0, sizeof(VkGeometryInstance) * 1, 0, &pInstances);
+	vkMapMemory(m_device->handle(), m_accelerationStructures.top.topInstanceMemory, 0, sizeof(VkGeometryInstance) * 1, 0, &pInstances);
 	memcpy(pInstances, &geometryInstance, sizeof(VkGeometryInstance));
-	vkUnmapMemory(m_device->handle(), m_accelerationStructures.bindingTable.topInstanceBufferMemory);
+	vkUnmapMemory(m_device->handle(), m_accelerationStructures.top.topInstanceMemory);
 
 	VkBindAccelerationStructureMemoryInfoNV bindInfo = {};
 	bindInfo.sType = VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_NV;
 	bindInfo.pNext = nullptr;
-	bindInfo.accelerationStructure = m_accelerationStructures.top;
-	bindInfo.memory = m_accelerationStructures.bindingTable.top.resultMemory;
+	bindInfo.accelerationStructure = m_accelerationStructures.top.handle;
+	bindInfo.memory = m_accelerationStructures.top.resultMemory;
 	bindInfo.memoryOffset = 0;
 	bindInfo.deviceIndexCount = 0;
 	bindInfo.pDeviceIndices = nullptr;
@@ -292,18 +327,18 @@ bool RaytracingAccelerationStructureBuilder::createTopLevelAccelerationStructure
 
 	m_device->getExtensions().vkCmdBuildAccelerationStructureNV(
 		cmd, &buildInfo,
-		m_accelerationStructures.bindingTable.topInstanceBuffer,
+		m_accelerationStructures.top.topInstance,
 		0,
 		false,
-		m_accelerationStructures.top,
+		m_accelerationStructures.top.handle,
 		nullptr,
-		m_accelerationStructures.bindingTable.top.build,
+		m_accelerationStructures.top.build,
 		0);
 
 	return true;
 }
 
-AccelerationStructures RaytracingAccelerationStructureBuilder::build(Model& model, VkPipeline pipeline) {
+AccelerationStructures RaytracingAccelerationStructureBuilder::build(Model& model) {
 	Queue* pQueue = m_device->getQueue(QueueType::eGraphics);
 	VkCommandBuffer cmd = pQueue->beginSingleTimeCommands();
 
@@ -327,53 +362,6 @@ AccelerationStructures RaytracingAccelerationStructureBuilder::build(Model& mode
 	createTopLevelAccelerationStructure(cmd);
 
 	pQueue->endSingleTimeCommands(cmd);
-
-	VkPhysicalDeviceRayTracingPropertiesNV physicalProperties = m_device->getRaytracingPhysicalProperties();
-
-	// TODO: round up to alignment
-	// allocate memory for all the shaders
-	// 0 for inline data
-	m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
-	m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
-	m_accelerationStructures.raytracingShaderGroupIndices.chitGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
-	m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupOffset = 0;
-	m_accelerationStructures.raytracingShaderGroupIndices.missGroupOffset = m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupSize;
-	m_accelerationStructures.raytracingShaderGroupIndices.chitGroupOffset = m_accelerationStructures.raytracingShaderGroupIndices.missGroupOffset + m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize;
-	//uint32_t ahitGroupSize = computeGroupSize(0, physicalProperties.shaderGroupHandleSize, physicalProperties.shaderGroupBaseAlignment);
-	uint32_t sbtSize = m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupSize + m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize + m_accelerationStructures.raytracingShaderGroupIndices.chitGroupSize;/* + m_raytracingShaderGroupIndices.ahitGroupSize*/;
-	
-	m_device->createBufferAndMemory(
-		sbtSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-		m_accelerationStructures.bindingTable.shaderBindingTableBuffer,
-		m_accelerationStructures.bindingTable.shaderBindingTableBufferMemory);
-
-	// allocate a buffer as big as the number of shaders
-	// TODO: remove the hardcoded 3
-	std::vector<uint8_t> shaderHandleStorage(3 * physicalProperties.shaderGroupHandleSize);
-
-	if (m_device->getExtensions().vkGetRayTracingShaderGroupHandlesNV(m_device->handle(), pipeline, 0, 3, shaderHandleStorage.size(), shaderHandleStorage.data()) != VK_SUCCESS) {
-		std::cerr << "Cannot get shader group handles" << std::endl;
-	}
-
-	void* tmpData;
-	vkMapMemory(m_device->handle(), m_accelerationStructures.bindingTable.shaderBindingTableBufferMemory, 0, sbtSize, 0, &tmpData);
-	uint8_t* pData = static_cast<uint8_t*>(tmpData);
-	// copy the handles
-	memset(pData, 0, sbtSize);
-	memcpy(pData, &shaderHandleStorage[0 * physicalProperties.shaderGroupHandleSize], physicalProperties.shaderGroupHandleSize); // rgen
-	// no inline data to copy
-	pData += m_accelerationStructures.raytracingShaderGroupIndices.rgenGroupSize;
-	memcpy(pData, &shaderHandleStorage[1 * physicalProperties.shaderGroupHandleSize], physicalProperties.shaderGroupHandleSize); // miss
-	// no inline data to copy
-	pData += m_accelerationStructures.raytracingShaderGroupIndices.missGroupSize;
-	memcpy(pData, &shaderHandleStorage[2 * physicalProperties.shaderGroupHandleSize], physicalProperties.shaderGroupHandleSize); // chit
-	// no inline data to copy
-	//pData += m_raytracingShaderGroupIndices.chitGroupSize;
-	//memcpy(pData, &shaderHandleStorage[3 * physicalProperties.shaderGroupHandleSize], physicalProperties.shaderGroupHandleSize); // ahit
-	vkUnmapMemory(m_device-> handle(), m_accelerationStructures.bindingTable.shaderBindingTableBufferMemory);
-
 
 	return m_accelerationStructures;
 }
