@@ -25,6 +25,12 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 	app->notifyFramebufferResized(width, height);
 }
 
+static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
+	app->onKeyEventCallback(key, scancode, action, mods);
+}
+
 struct PerFrameUniformBufferObject {
 	glm::mat4 model;
 	glm::mat4 view;
@@ -74,6 +80,7 @@ Application::Application()
 	, m_accelerationStructures{}
 	, m_shaderBindingTables{}
 	, m_raytracingCommandBuffer{ VK_NULL_HANDLE }
+	, m_cameraAngle(45.0f)
 {
 }
 
@@ -315,6 +322,24 @@ void Application::initWindow() {
 	m_window = glfwCreateWindow(WIDTH, HEIGHT, "Amano Vulkan", nullptr, nullptr);
 	glfwSetWindowUserPointer(m_window, this);
 	glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
+	glfwSetKeyCallback(m_window, keyCallback);
+}
+
+
+void Application::onKeyEventCallback(int key, int scancode, int action, int mods) {
+	if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+		m_cameraAngle -= 5.0f;
+		while (m_cameraAngle < 0.0f) {
+			m_cameraAngle += 360.0f;
+		}
+	}
+	else if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+		m_cameraAngle += 5.0f;
+		while (m_cameraAngle > 360.0f) {
+			m_cameraAngle -= 360.0f;
+		}
+	}
+	
 }
 
 void Application::mainLoop() {
@@ -413,10 +438,11 @@ void Application::drawFrame() {
 void Application::updateUniformBuffer() {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	
-	glm::vec3 origin = glm::vec3(2.8f * cosf(time), 2.8f * sinf(time), 2.0f);
+	//auto currentTime = std::chrono::high_resolution_clock::now();
+	//float time = 0.1f * std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+	//glm::vec3 origin = glm::vec3(2.8f * cosf(time), 2.8f * sinf(time), 2.0f);
+	float angleRadians = glm::radians(m_cameraAngle);
+	glm::vec3 origin = glm::vec3(2.8f * cosf(angleRadians), 2.8f * sinf(angleRadians), 2.0f);
 
 	PerFrameUniformBufferObject ubo{};
 	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));

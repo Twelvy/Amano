@@ -30,6 +30,7 @@ public:
 	bool init();
 	void run();
 	void notifyFramebufferResized(int width, int height);
+	void onKeyEventCallback(int key, int scancode, int action, int mods);
 
 private:
 	void initWindow();
@@ -95,6 +96,8 @@ private:
 	AccelerationStructures m_accelerationStructures;
 	ShaderBindingTables m_shaderBindingTables;
 	VkCommandBuffer m_raytracingCommandBuffer;
+
+	float m_cameraAngle;
 };
 
 }
