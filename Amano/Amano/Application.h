@@ -54,10 +54,12 @@ private:
 	// All of this should be wrapped into proper classes for easy access
 	Image* m_depthImage;
 	VkImageView m_depthImageView;
-	Image* m_colorImage;
-	VkImageView m_colorImageView;
-	Image* m_normalImage;
-	VkImageView m_normalImageView;
+	struct {
+		Image* colorImage = nullptr;
+		VkImageView colorImageView = VK_NULL_HANDLE;
+		Image* normalImage = nullptr;
+		VkImageView normalImageView = VK_NULL_HANDLE;
+	} m_GBuffer;
 	VkRenderPass m_renderPass;
 	VkFramebuffer m_framebuffer;
 	VkDescriptorSetLayout m_descriptorSetLayout;

@@ -29,7 +29,7 @@ public:
 
 	// TODO: make those methods more versatile
 
-	RenderPassBuilder& addColorAttachment(VkFormat format);
+	RenderPassBuilder& addColorAttachment(VkFormat format, VkImageLayout finalLayout);
 	RenderPassBuilder& addDepthAttachment(VkFormat format);
 
 	RenderPassBuilder& addSubpass(VkPipelineBindPoint bindPoint, std::vector<uint32_t> colorAttachmentIndices, uint32_t depthAttachmentIndex);

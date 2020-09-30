@@ -44,10 +44,7 @@ Application::Application()
 	// necessary information to dislay the model
 	, m_depthImage{ nullptr }
 	, m_depthImageView{ VK_NULL_HANDLE }
-	, m_colorImage{ nullptr }
-	, m_colorImageView{ VK_NULL_HANDLE }
-	, m_normalImage{ nullptr }
-	, m_normalImageView{ VK_NULL_HANDLE }
+	, m_GBuffer{}
 	, m_renderPass{ VK_NULL_HANDLE }
 	, m_framebuffer{ VK_NULL_HANDLE }
 	, m_descriptorSetLayout{ VK_NULL_HANDLE }
@@ -115,10 +112,10 @@ Application::~Application() {
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_descriptorSetLayout, nullptr);
 	vkDestroyRenderPass(m_device->handle(), m_renderPass, nullptr);
 	vkDestroyFramebuffer(m_device->handle(), m_framebuffer, nullptr);
-	vkDestroyImageView(m_device->handle(), m_normalImageView, nullptr);
-	delete m_normalImage;
-	vkDestroyImageView(m_device->handle(), m_colorImageView, nullptr);
-	delete m_colorImage;
+	vkDestroyImageView(m_device->handle(), m_GBuffer.normalImageView, nullptr);
+	delete m_GBuffer.normalImage;
+	vkDestroyImageView(m_device->handle(), m_GBuffer.colorImageView, nullptr);
+	delete m_GBuffer.colorImage;
 	vkDestroyImageView(m_device->handle(), m_depthImageView, nullptr);
 	delete m_depthImage;
 
@@ -162,8 +159,8 @@ bool Application::init() {
 	m_depthImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	// create the color images/buffers
-	m_colorImage = new Image(m_device);
-	m_colorImage->create(
+	m_GBuffer.colorImage = new Image(m_device);
+	m_GBuffer.colorImage->create(
 		m_width,
 		m_height,
 		1,
@@ -171,10 +168,10 @@ bool Application::init() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_colorImageView = m_colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+	m_GBuffer.colorImageView = m_GBuffer.colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
-	m_normalImage = new Image(m_device);
-	m_normalImage->create(
+	m_GBuffer.normalImage = new Image(m_device);
+	m_GBuffer.normalImage->create(
 		m_width,
 		m_height,
 		1,
@@ -182,14 +179,14 @@ bool Application::init() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_normalImageView = m_normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+	m_GBuffer.normalImageView = m_GBuffer.normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// create the render pass
 	RenderPassBuilder renderPassBuilder;
 	renderPassBuilder
-		.addColorAttachment(colorFormat) // attachment 0 for color
-		.addColorAttachment(normalFormat) // attachment 1 for normal
-		.addDepthAttachment(depthFormat) // attachment 2 for depth
+		.addColorAttachment(colorFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) // attachment 0 for color
+		.addColorAttachment(normalFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) // attachment 1 for normal
+		.addDepthAttachment(depthFormat) // attachment 3 for depth buffer
 		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0, 1 }, 2) // subpass 0
 		.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
 	m_renderPass = renderPassBuilder.build(*m_device);
@@ -197,8 +194,9 @@ bool Application::init() {
 	// create the framebuffer
 	FramebufferBuilder framebufferBuilder;
 	framebufferBuilder
-		.addAttachment(m_colorImageView)
-		.addAttachment(m_normalImageView)
+		.addAttachment(m_GBuffer.colorImageView)
+		.addAttachment(m_GBuffer.normalImageView)
+		//.addAttachment(m_GBuffer.depthImageView)
 		.addAttachment(m_depthImageView);
 	m_framebuffer = framebufferBuilder.build(*m_device, m_renderPass, m_width, m_height);
 
@@ -445,8 +443,8 @@ void Application::recordRenderCommands() {
 		barriers[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	}
 
-	barriers[0].image = m_colorImage->handle();
-	barriers[1].image = m_normalImage->handle();
+	barriers[0].image = m_GBuffer.colorImage->handle();
+	barriers[1].image = m_GBuffer.normalImage->handle();
 
 	vkCmdPipelineBarrier(m_renderCommandBuffer,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
@@ -534,9 +532,9 @@ void Application::recordBlitCommands() {
 		blit.dstSubresource.layerCount = 1;
 
 		vkCmdBlitImage(blitCommandBuffer,
-			//m_colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			//m_normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			//m_GBuffer.colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			//m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
 			VK_FILTER_LINEAR);
@@ -615,20 +613,20 @@ void Application::recordRaytracingCommands() {
 	Queue* pQueue = m_device->getQueue(QueueType::eGraphics);
 	m_raytracingCommandBuffer = pQueue->beginCommands();
 
-	VkImageMemoryBarrier barrier0{};
-	barrier0.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier0.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	barrier0.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-	barrier0.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier0.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier0.image = m_raytracingImage->handle();
-	barrier0.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier0.subresourceRange.baseMipLevel = 0;
-	barrier0.subresourceRange.levelCount = 1;
-	barrier0.subresourceRange.baseArrayLayer = 0;
-	barrier0.subresourceRange.layerCount = 1;
-	barrier0.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // TODO
-	barrier0.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO
+	VkImageMemoryBarrier inBarrier{};
+	inBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	inBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	inBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	inBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	inBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	inBarrier.image = m_raytracingImage->handle();
+	inBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	inBarrier.subresourceRange.baseMipLevel = 0;
+	inBarrier.subresourceRange.levelCount = 1;
+	inBarrier.subresourceRange.baseArrayLayer = 0;
+	inBarrier.subresourceRange.layerCount = 1;
+	inBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // TODO
+	inBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO
 
 	vkCmdPipelineBarrier(
 		m_raytracingCommandBuffer,
@@ -637,7 +635,7 @@ void Application::recordRaytracingCommands() {
 		0,
 		0, nullptr,
 		0, nullptr,
-		1, &barrier0);
+		1, &inBarrier);
 
 	vkCmdBindPipeline(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipeline);
 	vkCmdBindDescriptorSets(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipelineLayout, 0, 1, &m_raytracingDescriptorSet, 0, nullptr);

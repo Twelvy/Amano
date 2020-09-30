@@ -11,7 +11,7 @@ RenderPassBuilder::RenderPassBuilder()
 {
 }
 
-RenderPassBuilder& RenderPassBuilder::addColorAttachment(VkFormat format) {
+RenderPassBuilder& RenderPassBuilder::addColorAttachment(VkFormat format, VkImageLayout finalLayout) {
 	VkAttachmentDescription& colorAttachment = m_attachments.emplace_back();
 	colorAttachment.format = format;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -20,7 +20,7 @@ RenderPassBuilder& RenderPassBuilder::addColorAttachment(VkFormat format) {
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	colorAttachment.finalLayout = finalLayout;
 
 	return *this;
 }
