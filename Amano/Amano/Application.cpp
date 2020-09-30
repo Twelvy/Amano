@@ -58,15 +58,13 @@ Application::Application()
 	, m_modelTextureView{ VK_NULL_HANDLE }
 	, m_sampler{ VK_NULL_HANDLE }
 	, m_descriptorSet{ VK_NULL_HANDLE }
-	, m_imageAvailableSemaphores()
-	, m_renderFinishedSemaphores()
-	, m_blitFinishedSemaphores()
-	, m_inFlightFences()
-	, m_blitFences()
-	, m_imagesInFlight()
+	, m_imageAvailableSemaphore{ VK_NULL_HANDLE }
+	, m_renderFinishedSemaphore{ VK_NULL_HANDLE }
+	, m_blitFinishedSemaphore{ VK_NULL_HANDLE }
+	, m_inFlightFence{ VK_NULL_HANDLE }
+	, m_blitFence{ VK_NULL_HANDLE }
 	, m_renderCommandBuffer{ VK_NULL_HANDLE }
 	, m_blitCommandBuffers()
-	, m_currentFrame{ 0 }
 {
 }
 
@@ -76,13 +74,11 @@ Application::~Application() {
 	for (auto& cmd : m_blitCommandBuffers)
 		m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(cmd);
 
-	for (size_t i = 0; i < m_device->getSwapChainImages().size(); ++i) {
-		vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphores[i], nullptr);
-		vkDestroySemaphore(m_device->handle(), m_renderFinishedSemaphores[i], nullptr);
-		vkDestroySemaphore(m_device->handle(), m_imageAvailableSemaphores[i], nullptr);
-		vkDestroyFence(m_device->handle(), m_inFlightFences[i], nullptr);
-		vkDestroyFence(m_device->handle(), m_blitFences[i], nullptr);
-	}
+	vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphore, nullptr);
+	vkDestroySemaphore(m_device->handle(), m_renderFinishedSemaphore, nullptr);
+	vkDestroySemaphore(m_device->handle(), m_imageAvailableSemaphore, nullptr);
+	vkDestroyFence(m_device->handle(), m_inFlightFence, nullptr);
+	vkDestroyFence(m_device->handle(), m_blitFence, nullptr);
 
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_descriptorSet);
 	vkDestroyImageView(m_device->handle(), m_modelTextureView, nullptr);
@@ -227,13 +223,6 @@ bool Application::init() {
 
 	// create the sync objects
 	
-	m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	m_blitFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-	m_blitFences.resize(MAX_FRAMES_IN_FLIGHT);
-	m_imagesInFlight.resize(m_device->getSwapChainImages().size(), VK_NULL_HANDLE);
-
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -241,16 +230,19 @@ bool Application::init() {
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-		if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphores[i]) != VK_SUCCESS ||
-			vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_renderFinishedSemaphores[i]) != VK_SUCCESS ||
-			vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_blitFinishedSemaphores[i]) != VK_SUCCESS ||
-			vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_blitFences[i]) != VK_SUCCESS ||
-			vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_inFlightFences[i]) != VK_SUCCESS) {
+	if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
+		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_renderFinishedSemaphore) != VK_SUCCESS ||
+		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_blitFinishedSemaphore) != VK_SUCCESS) {
 
-			std::cerr << "failed to create synchronization objects for a frame!" << std::endl;
-			return false;
-		}
+		std::cerr << "failed to create semaphores for a frame!" << std::endl;
+		return false;
+	}
+	
+	if (vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_blitFence) != VK_SUCCESS ||
+		vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_inFlightFence) != VK_SUCCESS) {
+
+		std::cerr << "failed to create fences for a frame!" << std::endl;
+		return false;
 	}
 
 	recordRenderCommands();
@@ -293,13 +285,13 @@ void Application::mainLoop() {
 
 void Application::drawFrame() {
 	// NOTE: this isn't useful now since we are waiting for the previous frame to finish to render the next one
-	vkWaitForFences(m_device->handle(), 1, &m_inFlightFences[(m_currentFrame + 1) % 2], VK_TRUE, UINT64_MAX);
-	vkWaitForFences(m_device->handle(), 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
-	vkResetFences(m_device->handle(), 1, &m_inFlightFences[m_currentFrame]);
-	vkResetFences(m_device->handle(), 1, &m_blitFences[m_currentFrame]);
+	vkWaitForFences(m_device->handle(), 1, &m_blitFence, VK_TRUE, UINT64_MAX);
+	vkWaitForFences(m_device->handle(), 1, &m_inFlightFence, VK_TRUE, UINT64_MAX);
+	vkResetFences(m_device->handle(), 1, &m_blitFence);
+	vkResetFences(m_device->handle(), 1, &m_inFlightFence);
 
 	uint32_t imageIndex;
-	auto result = m_device->acquireNextImage(m_imageAvailableSemaphores[m_currentFrame], imageIndex);
+	auto result = m_device->acquireNextImage(m_imageAvailableSemaphore, imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		//recreateSwapChain();
@@ -309,19 +301,12 @@ void Application::drawFrame() {
 		std::cerr << "failed to acquire swap chain image!" << std::endl;
 	}
 
-	// Check if a previous frame is using this image (i.e. there is its fence to wait on)
-	if (m_imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-		vkWaitForFences(m_device->handle(), 1, &m_imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
-	}
-	// Mark the image as now being in use by this frame
-	m_imagesInFlight[imageIndex] = m_imagesInFlight[m_currentFrame];
-
 	updateUniformBuffer();
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	VkSemaphore waitSemaphores[] = { m_imageAvailableSemaphores[m_currentFrame] };
+	VkSemaphore waitSemaphores[] = { m_imageAvailableSemaphore };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
@@ -330,22 +315,19 @@ void Application::drawFrame() {
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &m_renderCommandBuffer;
 
-	VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphores[m_currentFrame] };
+	VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	vkResetFences(m_device->handle(), 1, &m_inFlightFences[m_currentFrame]);
-	vkResetFences(m_device->handle(), 1, &m_blitFences[m_currentFrame]);
-
 	// submit rendering
 	auto pQueue = m_device->getQueue(QueueType::eGraphics);
-	if (!pQueue->submit(&submitInfo, m_blitFences[m_currentFrame]))
+	if (!pQueue->submit(&submitInfo, m_blitFence))
 		return;
 
 	// submit blit
 	VkSubmitInfo blitSubmitInfo{};
 	blitSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	VkSemaphore blitWaitSemaphores[] = { m_renderFinishedSemaphores[m_currentFrame] };
+	VkSemaphore blitWaitSemaphores[] = { m_renderFinishedSemaphore };
 	VkPipelineStageFlags blitWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	blitSubmitInfo.waitSemaphoreCount = 1;
 	blitSubmitInfo.pWaitSemaphores = blitWaitSemaphores;
@@ -354,17 +336,15 @@ void Application::drawFrame() {
 	blitSubmitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers2.size());
 	blitSubmitInfo.pCommandBuffers = commandBuffers2.data();
 
-	VkSemaphore signalSemaphores2[] = { m_blitFinishedSemaphores[m_currentFrame] };
+	VkSemaphore signalSemaphores2[] = { m_blitFinishedSemaphore };
 	blitSubmitInfo.signalSemaphoreCount = 1;
 	blitSubmitInfo.pSignalSemaphores = signalSemaphores2;
 
-	if (!pQueue->submit(&blitSubmitInfo, m_inFlightFences[m_currentFrame]))
+	if (!pQueue->submit(&blitSubmitInfo, m_inFlightFence))
 		return;
 	
 	// wait for the rendering to finish
-	m_device->presentAndWait(m_blitFinishedSemaphores[m_currentFrame], imageIndex);
-
-	m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+	m_device->presentAndWait(m_blitFinishedSemaphore, imageIndex);
 }
 
 void Application::updateUniformBuffer() {

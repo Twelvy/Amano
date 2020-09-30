@@ -58,13 +58,11 @@ private:
 	VkImageView m_modelTextureView;
 	VkSampler m_sampler;
 	VkDescriptorSet m_descriptorSet;
-	std::vector<VkSemaphore> m_imageAvailableSemaphores;
-	std::vector<VkSemaphore> m_renderFinishedSemaphores;
-	std::vector<VkSemaphore> m_blitFinishedSemaphores;
-	std::vector<VkFence> m_inFlightFences;
-	std::vector<VkFence> m_blitFences;
-	std::vector<VkFence> m_imagesInFlight;
-	size_t m_currentFrame = 0;
+	VkSemaphore m_imageAvailableSemaphore;
+	VkSemaphore m_renderFinishedSemaphore;
+	VkSemaphore m_blitFinishedSemaphore;
+	VkFence m_inFlightFence;
+	VkFence m_blitFence;
 	// need more for double buffering
 	VkCommandBuffer m_renderCommandBuffer;
 	std::vector<VkCommandBuffer> m_blitCommandBuffers;
