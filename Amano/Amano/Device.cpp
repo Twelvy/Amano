@@ -293,6 +293,10 @@ Device::~Device() {
 	for (int i = 0; i < static_cast<int>(QueueType::eCount); ++i)
 		delete m_queues[i];
 	
+	vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
+
+	vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
+
 	vkDestroyDevice(m_device, nullptr);
 
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
@@ -695,6 +699,8 @@ bool Device::createDescriptorPool() {
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.pNext = nullptr;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = static_cast<uint32_t>(m_swapChainImages.size());
