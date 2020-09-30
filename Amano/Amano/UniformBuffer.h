@@ -29,6 +29,13 @@ public:
 
 	VkBuffer getBuffer() { return m_buffer; }
 
+	void update(DESC& desc) {
+		void* data;
+		vkMapMemory(m_device->handle(), m_bufferMemory, 0, sizeof(DESC), 0, &data);
+		memcpy(data, &desc, sizeof(DESC));
+		vkUnmapMemory(m_device->handle(), m_bufferMemory);
+	}
+
 private:
 	Device* m_device;
 	VkBuffer m_buffer;

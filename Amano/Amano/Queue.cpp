@@ -61,4 +61,53 @@ void Queue::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
 	vkFreeCommandBuffers(m_device->handle(), m_commandPool, 1, &commandBuffer);
 }
 
+
+VkCommandBuffer Queue::beginCommands() {
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.commandPool = m_commandPool;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+	if (vkAllocateCommandBuffers(m_device->handle(), &allocInfo, &commandBuffer) != VK_SUCCESS) {
+		std::cerr << "failed to allocate command buffers!" << std::endl;
+		return VK_NULL_HANDLE;
+	}
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = 0; // Optional
+	beginInfo.pInheritanceInfo = nullptr; // Optional
+
+	if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+		std::cerr << "failed to begin recording command buffer!" << std::endl;
+		freeCommandBuffer(commandBuffer);
+		return VK_NULL_HANDLE;
+	}
+
+	return commandBuffer;
+}
+
+bool Queue::endCommands(VkCommandBuffer commandBuffer) {
+	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+		std::cerr << "failed to record command buffer!" << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
+void Queue::freeCommandBuffer(VkCommandBuffer commandBuffer) {
+	vkFreeCommandBuffers(m_device->handle(), m_commandPool, 1, &commandBuffer);
+}
+
+bool Queue::submit(VkSubmitInfo* submitInfo, VkFence fence) {
+	if (vkQueueSubmit(m_queue, 1, submitInfo, fence) != VK_SUCCESS) {
+		std::cerr << "failed to submit draw command buffer!" << std::endl;
+		return false;
+	}
+	return true;
+}
+
 }

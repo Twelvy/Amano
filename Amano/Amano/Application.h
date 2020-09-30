@@ -26,7 +26,11 @@ public:
 private:
 	void initWindow();
 	void mainLoop();
-	//void cleanup();
+	void drawFrame();
+	void updateUniformBuffer();
+
+	void recordRenderCommands();
+	void recordBlitCommands();
 
 private:
 	GLFWwindow* m_window;
@@ -36,6 +40,7 @@ private:
 	uint32_t m_height;
 
 	// the information for the sample is here
+	// All of this should be wrapped into proper classes for easy access
 	Image* m_depthImage;
 	VkImageView m_depthImageView;
 	Image* m_colorImage;
@@ -48,12 +53,21 @@ private:
 	VkPipelineLayout m_pipelineLayout;
 	VkPipeline m_pipeline;
 	UniformBuffer<PerFrameUniformBufferObject>* m_uniformBuffer;
-
 	Model* m_model;
 	Image* m_modelTexture;
 	VkImageView m_modelTextureView;
 	VkSampler m_sampler;
 	VkDescriptorSet m_descriptorSet;
+	std::vector<VkSemaphore> m_imageAvailableSemaphores;
+	std::vector<VkSemaphore> m_renderFinishedSemaphores;
+	std::vector<VkSemaphore> m_blitFinishedSemaphores;
+	std::vector<VkFence> m_inFlightFences;
+	std::vector<VkFence> m_blitFences;
+	std::vector<VkFence> m_imagesInFlight;
+	size_t m_currentFrame = 0;
+	// need more for double buffering
+	VkCommandBuffer m_renderCommandBuffer;
+	std::vector<VkCommandBuffer> m_blitCommandBuffers;
 };
 
 }

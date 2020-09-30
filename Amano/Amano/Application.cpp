@@ -8,12 +8,14 @@
 #include "Builder/RenderPassBuilder.h"
 #include "Builder/SamplerBuilder.h"
 
+#include <chrono>
 #include <iostream>
 #include <vector>
 
 // temporary
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
+const int MAX_FRAMES_IN_FLIGHT = 2;
 
 namespace {
 
@@ -56,11 +58,32 @@ Application::Application()
 	, m_modelTextureView{ VK_NULL_HANDLE }
 	, m_sampler{ VK_NULL_HANDLE }
 	, m_descriptorSet{ VK_NULL_HANDLE }
+	, m_imageAvailableSemaphores()
+	, m_renderFinishedSemaphores()
+	, m_blitFinishedSemaphores()
+	, m_inFlightFences()
+	, m_blitFences()
+	, m_imagesInFlight()
+	, m_renderCommandBuffer{ VK_NULL_HANDLE }
+	, m_blitCommandBuffers()
+	, m_currentFrame{ 0 }
 {
 }
 
 Application::~Application() {
 	// TODO: wrap as many of those members into classes that know how to delete the Vulkan objects
+	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
+	for (auto& cmd : m_blitCommandBuffers)
+		m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(cmd);
+
+	for (size_t i = 0; i < m_device->getSwapChainImages().size(); ++i) {
+		vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphores[i], nullptr);
+		vkDestroySemaphore(m_device->handle(), m_renderFinishedSemaphores[i], nullptr);
+		vkDestroySemaphore(m_device->handle(), m_imageAvailableSemaphores[i], nullptr);
+		vkDestroyFence(m_device->handle(), m_inFlightFences[i], nullptr);
+		vkDestroyFence(m_device->handle(), m_blitFences[i], nullptr);
+	}
+
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_descriptorSet);
 	vkDestroyImageView(m_device->handle(), m_modelTextureView, nullptr);
 	vkDestroySampler(m_device->handle(), m_sampler, nullptr);
@@ -202,6 +225,37 @@ bool Application::init() {
 		.addImage(m_sampler, m_modelTextureView, 1);
 	m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
 
+	// create the sync objects
+	
+	m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+	m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+	m_blitFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+	m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+	m_blitFences.resize(MAX_FRAMES_IN_FLIGHT);
+	m_imagesInFlight.resize(m_device->getSwapChainImages().size(), VK_NULL_HANDLE);
+
+	VkSemaphoreCreateInfo semaphoreInfo{};
+	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	VkFenceCreateInfo fenceInfo{};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+		if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphores[i]) != VK_SUCCESS ||
+			vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_renderFinishedSemaphores[i]) != VK_SUCCESS ||
+			vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_blitFinishedSemaphores[i]) != VK_SUCCESS ||
+			vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_blitFences[i]) != VK_SUCCESS ||
+			vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_inFlightFences[i]) != VK_SUCCESS) {
+
+			std::cerr << "failed to create synchronization objects for a frame!" << std::endl;
+			return false;
+		}
+	}
+
+	recordRenderCommands();
+	recordBlitCommands();
+
 	return true;
 }
 
@@ -221,7 +275,7 @@ void Application::initWindow() {
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // do not allow resizing for now
 
 	m_width = static_cast<uint32_t>(WIDTH);
 	m_height = static_cast<uint32_t>(HEIGHT);
@@ -233,10 +287,203 @@ void Application::initWindow() {
 void Application::mainLoop() {
 	while (!glfwWindowShouldClose(m_window)) {
 		glfwPollEvents();
-		//drawFrame();
+		drawFrame();
 	}
 
 	m_device->waitIdle();
+}
+
+void Application::drawFrame() {
+	vkWaitForFences(m_device->handle(), 1, &m_inFlightFences[(m_currentFrame + 1) % 2], VK_TRUE, UINT64_MAX);
+	vkWaitForFences(m_device->handle(), 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
+	vkResetFences(m_device->handle(), 1, &m_inFlightFences[m_currentFrame]);
+	vkResetFences(m_device->handle(), 1, &m_blitFences[m_currentFrame]);
+
+	uint32_t imageIndex;
+	auto result = m_device->acquireNextImage(m_imageAvailableSemaphores[m_currentFrame], imageIndex);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+		//recreateSwapChain();
+		return;
+	}
+	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+		std::cerr << "failed to acquire swap chain image!" << std::endl;
+	}
+
+	// Check if a previous frame is using this image (i.e. there is its fence to wait on)
+	if (m_imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
+		vkWaitForFences(m_device->handle(), 1, &m_imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+	}
+	// Mark the image as now being in use by this frame
+	m_imagesInFlight[imageIndex] = m_imagesInFlight[m_currentFrame];
+
+	updateUniformBuffer();
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	VkSemaphore waitSemaphores[] = { m_imageAvailableSemaphores[m_currentFrame] };
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitDstStageMask = waitStages;
+
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &m_renderCommandBuffer;
+
+	VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphores[m_currentFrame] };
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores;
+
+	vkResetFences(m_device->handle(), 1, &m_inFlightFences[m_currentFrame]);
+	vkResetFences(m_device->handle(), 1, &m_blitFences[m_currentFrame]);
+
+	// submit rendering
+	auto pQueue = m_device->getQueue(QueueType::eGraphics);
+	if (!pQueue->submit(&submitInfo, m_blitFences[m_currentFrame]))
+		return;
+
+	// submit blit
+	VkSubmitInfo blitSubmitInfo{};
+	blitSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	VkSemaphore blitWaitSemaphores[] = { m_renderFinishedSemaphores[m_currentFrame] };
+	VkPipelineStageFlags blitWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	blitSubmitInfo.waitSemaphoreCount = 1;
+	blitSubmitInfo.pWaitSemaphores = blitWaitSemaphores;
+	blitSubmitInfo.pWaitDstStageMask = blitWaitStages;
+	std::array<VkCommandBuffer, 1> commandBuffers2 = { m_blitCommandBuffers[imageIndex] };
+	blitSubmitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers2.size());
+	blitSubmitInfo.pCommandBuffers = commandBuffers2.data();
+
+	VkSemaphore signalSemaphores2[] = { m_blitFinishedSemaphores[m_currentFrame] };
+	blitSubmitInfo.signalSemaphoreCount = 1;
+	blitSubmitInfo.pSignalSemaphores = signalSemaphores2;
+
+	if (!pQueue->submit(&blitSubmitInfo, m_inFlightFences[m_currentFrame]))
+		return;
+	
+	// wait for the rendering to finish
+	m_device->presentAndWait(m_blitFinishedSemaphores[m_currentFrame], imageIndex);
+
+	m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void Application::updateUniformBuffer() {
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+	time = 0.0f;
+
+	PerFrameUniformBufferObject ubo{};
+	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.proj = glm::perspective(glm::radians(45.0f), m_width / (float)m_height, 0.1f, 10.0f);
+
+	ubo.proj[1][1] *= -1;
+
+	m_uniformBuffer->update(ubo);
+}
+
+void Application::recordRenderCommands() {
+	auto pQueue = m_device->getQueue(QueueType::eGraphics);
+	m_renderCommandBuffer = pQueue->beginCommands();
+
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = m_renderPass;
+	renderPassInfo.framebuffer = m_framebuffer;
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent.width = m_width;
+	renderPassInfo.renderArea.extent.height = m_height;
+
+	std::array<VkClearValue, 3> clearValues{};
+	clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+	clearValues[1].color = { 0.0f, 0.0f, 0.0f, 0.0f };
+	clearValues[2].depthStencil = { 1.0f, 0 };
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(m_renderCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(m_renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+	VkBuffer vertexBuffers[] = { m_model->getVertexBuffer() };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(m_renderCommandBuffer, 0, 1, vertexBuffers, offsets);
+	vkCmdBindIndexBuffer(m_renderCommandBuffer, m_model->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+	vkCmdBindDescriptorSets(m_renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+
+	vkCmdDrawIndexed(m_renderCommandBuffer, m_model->getIndiceCount(), 1, 0, 0, 0);
+
+	pQueue->endCommands(m_renderCommandBuffer);
+}
+
+void Application::recordBlitCommands() {
+	auto pQueue = m_device->getQueue(QueueType::eGraphics);
+	m_blitCommandBuffers.resize(m_device->getSwapChainImages().size());
+
+	for (size_t i = 0; i < m_device->getSwapChainImages().size(); ++i) {
+		VkCommandBuffer blitCommandBuffer = pQueue->beginCommands();
+		m_blitCommandBuffers[i] = blitCommandBuffer;
+
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.image = m_device->getSwapChainImages()[i];
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.levelCount = 1;
+
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+		vkCmdPipelineBarrier(blitCommandBuffer,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+			0, nullptr,
+			0, nullptr,
+			1, &barrier);
+
+		VkImageBlit blit{};
+		blit.srcOffsets[0] = { 0, 0, 0 };
+		blit.srcOffsets[1] = { static_cast<int32_t>(m_width), static_cast<int32_t>(m_height), 1 };
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.srcSubresource.mipLevel = 0;
+		blit.srcSubresource.baseArrayLayer = 0;
+		blit.srcSubresource.layerCount = 1;
+		blit.dstOffsets[0] = { 0, 0, 0 };
+		blit.dstOffsets[1] = { static_cast<int32_t>(m_width), static_cast<int32_t>(m_height), 1 };
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.mipLevel = 0;
+		blit.dstSubresource.baseArrayLayer = 0;
+		blit.dstSubresource.layerCount = 1;
+
+		vkCmdBlitImage(blitCommandBuffer,
+			m_colorImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			//m_normalImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &blit,
+			VK_FILTER_LINEAR);
+
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+
+		vkCmdPipelineBarrier(blitCommandBuffer,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+			0, nullptr,
+			0, nullptr,
+			1, &barrier);
+
+		m_device->getQueue(QueueType::eGraphics)->endCommands(blitCommandBuffer);
+	}
 }
 
 }

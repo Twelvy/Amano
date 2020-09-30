@@ -17,6 +17,10 @@ public:
 
 	bool create(const std::string& filename);
 
+	VkBuffer getVertexBuffer() { return m_vertexBuffer; }
+	VkBuffer getIndexBuffer() { return m_indexBuffer; }
+	uint32_t getIndiceCount() { return static_cast<uint32_t>(m_indices.size()); }
+
 private:
 	bool load(const std::string& filename);
 	bool createVertexBuffer();

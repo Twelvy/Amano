@@ -318,6 +318,39 @@ void Device::waitIdle() {
 	vkDeviceWaitIdle(m_device);
 }
 
+VkResult Device::acquireNextImage(VkSemaphore semaphore, uint32_t& imageIndex) {
+	return vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &imageIndex);
+}
+
+void Device::presentAndWait(VkSemaphore waitSemaphore, uint32_t imageIndex) {
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+	presentInfo.waitSemaphoreCount = 1;
+	//presentInfo.pWaitSemaphores = signalSemaphores;
+	presentInfo.pWaitSemaphores = &waitSemaphore;
+
+	VkSwapchainKHR swapChains[] = { m_swapChain };
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = swapChains;
+	presentInfo.pImageIndices = &imageIndex;
+	presentInfo.pResults = nullptr; // Optional
+
+	Queue* pPresentQueue = getQueue(QueueType::ePresent);
+	VkResult result = vkQueuePresentKHR(pPresentQueue->handle(), &presentInfo);
+
+	/*
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_framebufferResized) {
+		m_framebufferResized = false;
+		recreateSwapChain();
+	}
+	else if (result != VK_SUCCESS) {
+		throw std::runtime_error("failed to present swap chain image!");
+	}
+	*/
+	vkQueueWaitIdle(pPresentQueue->handle());
+}
+
 VkFormat Device::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
 	for (VkFormat format : candidates) {
 		VkFormatProperties props;
