@@ -260,9 +260,7 @@ bool Application::init() {
 }
 
 void Application::run() {
-	
 	mainLoop();
-	//cleanup();
 }
 
 void Application::notifyFramebufferResized(int width, int height) {
@@ -373,8 +371,7 @@ void Application::updateUniformBuffer() {
 
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	time = 0.0f;
-
+	
 	PerFrameUniformBufferObject ubo{};
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));

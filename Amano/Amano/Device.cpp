@@ -10,7 +10,7 @@ namespace {
 
 const std::vector<const char*> cDeviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-	VK_NV_RAY_TRACING_EXTENSION_NAME,
+	//VK_NV_RAY_TRACING_EXTENSION_NAME,
 };
 
 const std::vector<const char*> cValidationLayers = {
