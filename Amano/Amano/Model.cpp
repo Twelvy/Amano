@@ -1,3 +1,4 @@
+#include "Config.h"
 #include "Model.h"
 #include "Device.h"
 
@@ -5,6 +6,20 @@
 #include <tiny_obj_loader.h>
 
 #include <iostream>
+
+namespace std {
+	// hash method for Vertex
+	// This is necessary when using Vertex as a key in a map
+	// TODO: revise this method
+	template<> struct hash<Amano::Vertex> {
+		size_t operator()(Amano::Vertex const& vertex) const {
+			return ((hash<glm::vec3>()(vertex.pos) ^
+				(hash<glm::vec3>()(vertex.normal) << 1) ^
+				(hash<glm::vec2>()(vertex.texCoord) << 1) ^
+				(hash<glm::vec3>()(vertex.color) << 1)) >> 1);
+		}
+	};
+}
 
 namespace Amano {
 

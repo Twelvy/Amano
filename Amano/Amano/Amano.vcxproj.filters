@@ -75,6 +75,9 @@
     <ClCompile Include="Builder\ShaderBindingTableBuilder.cpp">
       <Filter>Source Files\Builder</Filter>
     </ClCompile>
+    <ClCompile Include="Config.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">

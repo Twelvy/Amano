@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Config.h"
-
 namespace Amano {
 
 // This class fetches methods needed for raytracing

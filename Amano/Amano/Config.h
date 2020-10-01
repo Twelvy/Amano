@@ -1,3 +1,5 @@
+// Precompiled header
+// This comtains the setup for GLFW and glm
 #pragma once
 
 #define GLFW_INCLUDE_VULKAN
@@ -14,9 +16,8 @@
 
 namespace Amano {
 
-/// <summary>
-/// This is the only supported Vertex format for now
-/// </summary>
+// This is the only supported Vertex format for now
+// Flexibility will be introduced in the future
 struct Vertex {
 	glm::vec3 pos;
 	glm::vec3 normal;
@@ -62,16 +63,4 @@ struct Vertex {
 	}
 };
 
-}
-
-namespace std {
-	// TODO: revise this method
-	template<> struct hash<Amano::Vertex> {
-		size_t operator()(Amano::Vertex const& vertex) const {
-			return ((hash<glm::vec3>()(vertex.pos) ^
-				(hash<glm::vec3>()(vertex.normal) << 1) ^
-				(hash<glm::vec2>()(vertex.texCoord) << 1) ^
-				(hash<glm::vec3>()(vertex.color) << 1)) >> 1);
-		}
-	};
 }

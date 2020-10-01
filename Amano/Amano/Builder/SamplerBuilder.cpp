@@ -1,3 +1,4 @@
+#include "Config.h"
 #include "SamplerBuilder.h"
 
 #include <iostream>

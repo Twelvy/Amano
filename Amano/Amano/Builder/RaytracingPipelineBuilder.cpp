@@ -1,3 +1,4 @@
+#include "Config.h"
 #include "RaytracingPipelineBuilder.h"
 
 #include <array>

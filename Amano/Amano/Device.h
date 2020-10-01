@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Config.h"
 #include "Extensions.h"
 #include "Queue.h"
 
@@ -28,16 +27,16 @@ public:
 	const Extensions& getExtensions() const { return m_extensions; }
 	VkPhysicalDeviceRayTracingPropertiesNV getRaytracingPhysicalProperties();
 
-	void waitIdle();
-	VkResult acquireNextImage(VkSemaphore semaphore, uint32_t& imageIndex);
-	void presentAndWait(VkSemaphore waitSemaphore, uint32_t imageIndex);
-
 	Queue* getQueue(QueueType type) { return m_queues[static_cast<uint32_t>(type)]; }
 	VkDescriptorPool getDescriptorPool() { return m_descriptorPool; }
 	std::vector<VkImage>& getSwapChainImages() { return m_swapChainImages; }
 
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 	bool doesSuportBlitting(VkFormat format);
+
+	void waitIdle();
+	VkResult acquireNextImage(VkSemaphore semaphore, uint32_t& imageIndex);
+	void presentAndWait(VkSemaphore waitSemaphore, uint32_t imageIndex);
 
 	bool createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void destroyBuffer(VkBuffer buffer);

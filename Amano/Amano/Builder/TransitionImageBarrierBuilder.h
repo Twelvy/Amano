@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../Config.h"
-
 namespace Amano {
 
 // Helper class to transition an image layout

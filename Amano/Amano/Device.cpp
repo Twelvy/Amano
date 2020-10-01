@@ -1,3 +1,4 @@
+#include "Config.h"
 #include "Device.h"
 
 #include <cstdint>
@@ -23,6 +24,7 @@ constexpr bool cEnableValidationLayers = false;
 constexpr bool cEnableValidationLayers = true;
 #endif
 
+// callback to the debug validation layers of Vulkan
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -34,6 +36,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 }
 
+// Checks that all the requested validation layers are supported
 bool checkValidationLayerSupport() {
 	uint32_t layerCount;
 	vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -90,7 +93,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 	}
 }
 
-
+// Utility structure to store the family index of each queue type
 struct QueueFamilyIndices {
 	std::optional<uint32_t> graphicsFamily;
 	std::optional<uint32_t> computeFamily;
