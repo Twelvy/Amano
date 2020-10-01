@@ -344,7 +344,7 @@ void Application::onCursorCallback(double xpos, double ypos) {
 		glm::vec3 moveDir(newPos - m_mousePrevPos, 0.0f);
 		moveDir *= glm::vec3(static_cast<float>(m_height) / static_cast<float>(m_width), 1.0f, 1.0f);
 		m_cameraOrbitAnglesAndDistance -= moveDir;
-
+		// hardcoded limits
 		while (m_cameraOrbitAnglesAndDistance.x > 360.0f)
 			m_cameraOrbitAnglesAndDistance.x -= 360.0f;
 		while (m_cameraOrbitAnglesAndDistance.x < 0.0f)
@@ -365,6 +365,7 @@ void Application::onCursorCallback(double xpos, double ypos) {
 
 void Application::onScrollCallback(double xscroll, double yscroll) {
 	m_cameraOrbitAnglesAndDistance.z -= static_cast<float>(yscroll) / 10.0f;
+	// hardcoded limits
 	if (m_cameraOrbitAnglesAndDistance.z < 0.01f)
 		m_cameraOrbitAnglesAndDistance.z = 0.01f;
 	updateCameraPosition();
