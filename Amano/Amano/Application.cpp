@@ -595,6 +595,7 @@ void Application::setupRaytracingData() {
 	pipelineLayoutBuilder.addDescriptorSetLayout(m_raytracingDescriptorSetLayout);
 	m_raytracingPipelineLayout = pipelineLayoutBuilder.build(*m_device);
 
+	// load the shaders and create the pipeline
 	RaytracingPipelineBuilder raytracingPipelineBuilder(m_device);
 	raytracingPipelineBuilder
 		.addShader("../../compiled_shaders/raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
@@ -602,6 +603,7 @@ void Application::setupRaytracingData() {
 		.addShader("../../compiled_shaders/closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
 	m_raytracingPipeline = raytracingPipelineBuilder.build(m_raytracingPipelineLayout, 1);
 
+	// create the shader binding table associated to this pipeline
 	ShaderBindingTableBuilder sbtBuilder(m_device, m_raytracingPipeline);
 	sbtBuilder
 		.addShader(ShaderBindingTableBuilder::Stage::eRayGen, 0)
@@ -609,6 +611,8 @@ void Application::setupRaytracingData() {
 		.addShader(ShaderBindingTableBuilder::Stage::eClosestHit, 2);
 	m_shaderBindingTables = sbtBuilder.build();
 
+	// build the acceleration structure for 1 model
+	// we should extend it to more models
 	RaytracingAccelerationStructureBuilder accelerationStructureBuilder(m_device, m_raytracingPipeline);
 	m_accelerationStructures = accelerationStructureBuilder.build(*m_model);
 
