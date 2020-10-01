@@ -64,7 +64,7 @@ private:
 	// Flag indicating the window has been resized. Not used for now
 	bool m_framebufferResized;
 
-	// The width of the windw
+	// The width of the window
 	uint32_t m_width;
 
 	// The height of the window

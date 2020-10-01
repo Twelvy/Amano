@@ -4,6 +4,9 @@
 
 namespace Amano {
 
+// Helper class to transition an image layout
+// This can be used several times to chain transitions
+// Some options are missing and will be added in the future based on the necessity
 template<uint32_t COUNT>
 class TransitionImageBarrierBuilder {
 
