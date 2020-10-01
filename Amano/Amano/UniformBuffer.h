@@ -28,6 +28,7 @@ public:
 	}
 
 	VkBuffer getBuffer() { return m_buffer; }
+	size_t getSize() { return sizeof(DESC); }
 
 	void update(DESC& desc) {
 		void* data;

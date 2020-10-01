@@ -106,6 +106,7 @@ Application::~Application() {
 	delete m_modelTexture;
 	delete m_model;
 	delete m_uniformBuffer;
+	delete m_lightUniformBuffer;
 	vkDestroyPipeline(m_device->handle(), m_pipeline, nullptr);
 	vkDestroyPipelineLayout(m_device->handle(), m_pipelineLayout, nullptr);
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_descriptorSetLayout, nullptr);
@@ -213,7 +214,8 @@ bool Application::init() {
 	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
 	descriptorSetLayoutbuilder
 		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	m_descriptorSetLayout = descriptorSetLayoutbuilder.build(*m_device);
 	
 	// create pipeline layout
@@ -233,6 +235,7 @@ bool Application::init() {
 
 	// create the uniform buffer of the shader we are using
 	m_uniformBuffer = new UniformBuffer<PerFrameUniformBufferObject>(m_device);
+	m_lightUniformBuffer = new UniformBuffer<LightInformation>(m_device);
 
 	// load the model to display
 	m_model = new Model(m_device);
@@ -251,8 +254,9 @@ bool Application::init() {
 	// update the descriptor set
 	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_descriptorSetLayout);
 	descriptorSetBuilder
-		.addUniformBuffer(m_uniformBuffer->getBuffer(), sizeof(PerFrameUniformBufferObject), 0)
-		.addImage(m_sampler, m_modelTexture->viewHandle(), 1);
+		.addUniformBuffer(m_uniformBuffer->getBuffer(), m_uniformBuffer->getSize(), 0)
+		.addImage(m_sampler, m_modelTexture->viewHandle(), 1)
+		.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 2);
 	m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
 
 	// for raytracing, we should specific objects
@@ -434,9 +438,9 @@ void Application::drawFrame() {
 }
 
 void Application::updateUniformBuffer() {
-	//static auto startTime = std::chrono::high_resolution_clock::now();
-	//auto currentTime = std::chrono::high_resolution_clock::now();
-	//float time = 0.1f * std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+	static auto startTime = std::chrono::high_resolution_clock::now();
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 	//glm::vec3 origin = glm::vec3(2.8f * cosf(time), 2.8f * sinf(time), 2.0f);
 
 	float angleRadians = glm::radians(m_cameraAngle);
@@ -461,6 +465,11 @@ void Application::updateUniformBuffer() {
 	rayUbo.rayOrigin = origin;
 
 	m_raytracingUniformBuffer->update(rayUbo);
+
+	// update the light position
+	LightInformation lightUbo;
+	lightUbo.lightPosition = glm::vec3(0.3f * cosf(time), 0.3f * sinf(time), 0.5f);
+	m_lightUniformBuffer->update(lightUbo);
 }
 
 void Application::recordRenderCommands() {
@@ -548,10 +557,10 @@ void Application::recordBlitCommands() {
 		blit.dstSubresource.layerCount = 1;
 
 		vkCmdBlitImage(blitCommandBuffer,
-			//m_GBuffer.colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_GBuffer.colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_GBuffer.depthImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			//m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
 			VK_FILTER_LINEAR);
@@ -621,7 +630,7 @@ void Application::setupRaytracingData() {
 	descriptorSetBuilder
 		.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
 		.addStorageImage(m_raytracingImage->viewHandle(), 1)
-		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), sizeof(RayParams), 2);
+		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2);
 	m_raytracingDescriptorSet = descriptorSetBuilder.buildAndUpdate();
 }
 

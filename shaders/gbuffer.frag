@@ -11,12 +11,15 @@ layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outDepth;
 
 layout(binding = 1) uniform sampler2D texSampler;
+layout(binding = 2) uniform lightInformation
+{
+    vec3 lightPosition;
+};
 
 void main() {
     //outColor = vec4(fragColor, 1.0);
     //outColor = vec4(fragTexCoord, 0.0, 1.0);
-    vec3 lightPos = vec3(0.0, 0.0, 1.0);
-    vec3 lightDir = normalize(lightPos - worldPos);
+    vec3 lightDir = normalize(lightPosition - worldPos);
     vec3 normal = normalize(worldNormal);
     float diffuseIntensity = clamp(dot(normal, lightDir), 0.0, 1.0);
 
