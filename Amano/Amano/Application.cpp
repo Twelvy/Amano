@@ -52,6 +52,7 @@ Application::Application()
 	, m_pipelineLayout{ VK_NULL_HANDLE }
 	, m_pipeline{ VK_NULL_HANDLE }
 	, m_uniformBuffer{ nullptr }
+	, m_lightUniformBuffer{ nullptr }
 	, m_model{ nullptr }
 	, m_modelTexture{ nullptr }
 	, m_sampler{ VK_NULL_HANDLE }

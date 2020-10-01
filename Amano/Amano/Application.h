@@ -24,6 +24,10 @@ struct RayParams {
 	glm::vec3 rayOrigin;
 };
 
+struct LightInformation {
+	glm::vec3 lightPosition;
+};
+
 class Application {
 public:
 	Application();
@@ -86,6 +90,7 @@ private:
 	VkPipelineLayout m_pipelineLayout;
 	VkPipeline m_pipeline;
 	UniformBuffer<PerFrameUniformBufferObject>* m_uniformBuffer;
+	UniformBuffer<LightInformation>* m_lightUniformBuffer;
 	Model* m_model;
 	Image* m_modelTexture;
 	VkSampler m_sampler;
