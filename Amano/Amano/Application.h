@@ -10,12 +10,14 @@
 
 namespace Amano {
 
+// Uniform buffer for gbuffer vertex shader 
 struct PerFrameUniformBufferObject {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
 };
 
+// Uniform buffer for raygen shader
 struct RayParams {
 	glm::mat4 viewInverse;
 	glm::mat4 projInverse;
@@ -27,29 +29,48 @@ public:
 	Application();
 	~Application();
 
+	// Initializes the window, Vulkan and the sampe application
 	bool init();
+
+	// Starts the application
+	// the function will return when the window closes
 	void run();
+
+	// Receives the new size of the window
+	// There is no need to call it manually
 	void notifyFramebufferResized(int width, int height);
+
+	// Receives the keyboard input
+	// There is no need to call it manually
 	void onKeyEventCallback(int key, int scancode, int action, int mods);
 
 private:
 	void initWindow();
-	void mainLoop();
+
 	void drawFrame();
 	void updateUniformBuffer();
 
+	// multiple methods to record the commands once
 	void recordRenderCommands();
 	void recordBlitCommands();
 	void recordRaytracingCommands();
 
+	// Temporary method to create the data and graphics object needed for raytracing
 	void setupRaytracingData();
 
 private:
 	GLFWwindow* m_window;
-	Device* m_device;
+
+	// Flag indicating the window has been resized. Not used for now
 	bool m_framebufferResized;
+
+	// The width of the windw
 	uint32_t m_width;
+
+	// The height of the window
 	uint32_t m_height;
+
+	Device* m_device;
 
 	// the information for the sample is here
 	// All of this should be wrapped into proper classes for easy access

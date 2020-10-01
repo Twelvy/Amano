@@ -14,6 +14,7 @@
 #include <vector>
 
 // temporary
+// Default window width and height
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -31,23 +32,17 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 	app->onKeyEventCallback(key, scancode, action, mods);
 }
 
-struct PerFrameUniformBufferObject {
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
-};
-
 }
 
 namespace Amano {
 
 Application::Application()
 	: m_window{ nullptr }
-	, m_device{ nullptr }
 	, m_framebufferResized{ false }
 	, m_width{ 0 }
 	, m_height{ 0 }
-	// necessary information to dislay the model
+	, m_device{ nullptr }
+	// necessary information to display the model
 	, m_depthImage{ nullptr }
 	, m_depthImageView{ VK_NULL_HANDLE }
 	, m_GBuffer{}
@@ -145,7 +140,6 @@ bool Application::init() {
 	// from here, this is a test application
 	/////////////////////////////////////////////
 
-	// TODO: check the supported formats for depth
 	const VkFormat depthFormat = m_device->findSupportedFormat(
 		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
 		VK_IMAGE_TILING_OPTIMAL,
@@ -168,7 +162,7 @@ bool Application::init() {
 	m_depthImageView = m_depthImage->createView(VK_IMAGE_ASPECT_DEPTH_BIT);
 	m_depthImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	// create the color images/buffers
+	// create the images for the GBuffer
 	m_GBuffer.colorImage = new Image(m_device);
 	m_GBuffer.colorImage->create(
 		m_width,
@@ -250,10 +244,13 @@ bool Application::init() {
 	// load the model to display
 	m_model = new Model(m_device);
 	m_model->create("../../assets/models/viking_room.obj");
+
+	// load the texture of the model
 	m_modelTexture = new Image(m_device);
 	m_modelTexture->create("../../assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
 	m_modelTextureView = m_modelTexture->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
+	// create a sampler for the texture
 	SamplerBuilder samplerBuilder;
 	samplerBuilder.setMaxLoad((float)m_modelTexture->getMipLevels());
 	m_sampler = samplerBuilder.build(*m_device);
@@ -265,7 +262,7 @@ bool Application::init() {
 		.addImage(m_sampler, m_modelTextureView, 1);
 	m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
 
-	// for raytracing, we should create some objects
+	// for raytracing, we should specific objects
 	setupRaytracingData();
 
 	// create the sync objects
@@ -302,7 +299,12 @@ bool Application::init() {
 }
 
 void Application::run() {
-	mainLoop();
+	while (!glfwWindowShouldClose(m_window)) {
+		glfwPollEvents();
+		drawFrame();
+	}
+
+	m_device->waitIdle();
 }
 
 void Application::notifyFramebufferResized(int width, int height) {
@@ -321,6 +323,7 @@ void Application::initWindow() {
 	m_height = static_cast<uint32_t>(HEIGHT);
 	m_window = glfwCreateWindow(WIDTH, HEIGHT, "Amano Vulkan", nullptr, nullptr);
 	glfwSetWindowUserPointer(m_window, this);
+	// NOTE: the window cannot be resized for now
 	glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
 	glfwSetKeyCallback(m_window, keyCallback);
 }
@@ -342,23 +345,16 @@ void Application::onKeyEventCallback(int key, int scancode, int action, int mods
 	
 }
 
-void Application::mainLoop() {
-	while (!glfwWindowShouldClose(m_window)) {
-		glfwPollEvents();
-		drawFrame();
-	}
-
-	m_device->waitIdle();
-}
-
 void Application::drawFrame() {
-	// NOTE: this isn't useful now since we are waiting for the previous frame to finish to render the next one
+	// wait for the previous frame to finish
+	// we could allow multiple frames at the same time in the future
 	vkWaitForFences(m_device->handle(), 1, &m_blitFence, VK_TRUE, UINT64_MAX);
 	vkWaitForFences(m_device->handle(), 1, &m_inFlightFence, VK_TRUE, UINT64_MAX);
 	vkResetFences(m_device->handle(), 1, &m_blitFence);
 	vkResetFences(m_device->handle(), 1, &m_raytracingFence);
 	vkResetFences(m_device->handle(), 1, &m_inFlightFence);
 
+	// get the next image in the swapchain
 	uint32_t imageIndex;
 	auto result = m_device->acquireNextImage(m_imageAvailableSemaphore, imageIndex);
 
@@ -370,9 +366,13 @@ void Application::drawFrame() {
 		std::cerr << "failed to acquire swap chain image!" << std::endl;
 	}
 
+	// now that we know that the previous frame is finished, we can update the buffers
 	updateUniformBuffer();
 
 	// submit rendering
+	// 1. wait for the image to be available
+	// 2. signal the render finished semaphore
+	// 3. notify the raytracing fence
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -394,6 +394,9 @@ void Application::drawFrame() {
 		return;
 
 	// submit raytracing
+	// 1. wait for the render finished semaphore
+	// 2. signal the raytracing finished semaphore
+	// 3. notify the blit fence
 	VkSubmitInfo raytracingSubmitInfo{};
 	raytracingSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -414,6 +417,9 @@ void Application::drawFrame() {
 		return;
 
 	// submit blit
+	// 1. wait for the raytracing finished semaphore
+	// 2. signal the blit finished semaphore
+	// 3. notify the in-flight fence
 	VkSubmitInfo blitSubmitInfo{};
 	blitSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	VkSemaphore blitWaitSemaphores[] = { m_raytracingFinishedSemaphore };
@@ -436,24 +442,27 @@ void Application::drawFrame() {
 }
 
 void Application::updateUniformBuffer() {
-	static auto startTime = std::chrono::high_resolution_clock::now();
-
+	//static auto startTime = std::chrono::high_resolution_clock::now();
 	//auto currentTime = std::chrono::high_resolution_clock::now();
 	//float time = 0.1f * std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 	//glm::vec3 origin = glm::vec3(2.8f * cosf(time), 2.8f * sinf(time), 2.0f);
+
 	float angleRadians = glm::radians(m_cameraAngle);
 	glm::vec3 origin = glm::vec3(2.8f * cosf(angleRadians), 2.8f * sinf(angleRadians), 2.0f);
 
+	// update the gbuffer shader uniform
 	PerFrameUniformBufferObject ubo{};
 	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.view = glm::lookAt(origin, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), m_width / (float)m_height, 0.1f, 10.0f);
 
-	// TODO: fix this
+	// glm uses the opengl convention, so we need to flip the Y axis of the projection
+	// TODO: fix this by implementing our own projection method
 	ubo.proj[1][1] *= -1;
 
 	m_uniformBuffer->update(ubo);
 
+	// update the raytracing shader uniform
 	RayParams rayUbo{};
 	rayUbo.viewInverse = glm::inverse(ubo.view);
 	rayUbo.projInverse = glm::inverse(ubo.proj);
