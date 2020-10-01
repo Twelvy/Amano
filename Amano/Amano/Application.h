@@ -75,14 +75,10 @@ private:
 	// the information for the sample is here
 	// All of this should be wrapped into proper classes for easy access
 	Image* m_depthImage;
-	VkImageView m_depthImageView;
 	struct {
 		Image* colorImage = nullptr;
-		VkImageView colorImageView = VK_NULL_HANDLE;
 		Image* normalImage = nullptr;
-		VkImageView normalImageView = VK_NULL_HANDLE;
 		Image* depthImage = nullptr;
-		VkImageView depthImageView = VK_NULL_HANDLE;
 	} m_GBuffer;
 	VkRenderPass m_renderPass;
 	VkFramebuffer m_framebuffer;
@@ -92,7 +88,6 @@ private:
 	UniformBuffer<PerFrameUniformBufferObject>* m_uniformBuffer;
 	Model* m_model;
 	Image* m_modelTexture;
-	VkImageView m_modelTextureView;
 	VkSampler m_sampler;
 	VkDescriptorSet m_descriptorSet;
 	VkSemaphore m_imageAvailableSemaphore;
@@ -108,7 +103,6 @@ private:
 
 	// for raytracing
 	Image* m_raytracingImage;
-	VkImageView m_raytracingImageView;
 	UniformBuffer<RayParams>* m_raytracingUniformBuffer;
 	VkDescriptorSetLayout m_raytracingDescriptorSetLayout;
 	VkPipelineLayout m_raytracingPipelineLayout;

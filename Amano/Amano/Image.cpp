@@ -26,11 +26,13 @@ Image::Image(Device* device)
 	, m_format{ VK_FORMAT_UNDEFINED }
 	, m_image{ VK_NULL_HANDLE }
 	, m_imageMemory{ VK_NULL_HANDLE }
+	, m_imageView{ VK_NULL_HANDLE }
 {
 }
 
 Image::~Image() {
 	m_device->freeDeviceMemory(m_imageMemory);
+	vkDestroyImageView(m_device->handle(), m_imageView, nullptr);
 	vkDestroyImage(m_device->handle(), m_image, nullptr);
 }
 
@@ -128,7 +130,7 @@ bool Image::create(const std::string& filename, Queue& queue) {
 	return true;
 }
 
-VkImageView Image::createView(VkImageAspectFlags aspectFlags) {
+bool Image::createView(VkImageAspectFlags aspectFlags) {
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewInfo.image = m_image;
@@ -140,12 +142,12 @@ VkImageView Image::createView(VkImageAspectFlags aspectFlags) {
 	viewInfo.subresourceRange.baseArrayLayer = 0;
 	viewInfo.subresourceRange.layerCount = 1;
 
-	VkImageView imageView = VK_NULL_HANDLE;
-	if (vkCreateImageView(m_device->handle(), &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+	if (vkCreateImageView(m_device->handle(), &viewInfo, nullptr, &m_imageView) != VK_SUCCESS) {
 		std::cerr << "failed to create texture image view!" << std::endl;
+		return false;
 	}
 
-	return imageView;
+	return true;;
 }
 
 void Image::transitionLayout(Queue& queue, VkImageLayout oldLayout, VkImageLayout newLayout) {

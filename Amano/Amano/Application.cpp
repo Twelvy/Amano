@@ -45,7 +45,6 @@ Application::Application()
 	, m_device{ nullptr }
 	// necessary information to display the model
 	, m_depthImage{ nullptr }
-	, m_depthImageView{ VK_NULL_HANDLE }
 	, m_GBuffer{}
 	, m_renderPass{ VK_NULL_HANDLE }
 	, m_framebuffer{ VK_NULL_HANDLE }
@@ -55,7 +54,6 @@ Application::Application()
 	, m_uniformBuffer{ nullptr }
 	, m_model{ nullptr }
 	, m_modelTexture{ nullptr }
-	, m_modelTextureView{ VK_NULL_HANDLE }
 	, m_sampler{ VK_NULL_HANDLE }
 	, m_descriptorSet{ VK_NULL_HANDLE }
 	, m_imageAvailableSemaphore{ VK_NULL_HANDLE }
@@ -67,7 +65,6 @@ Application::Application()
 	, m_renderCommandBuffer{ VK_NULL_HANDLE }
 	, m_blitCommandBuffers()
 	, m_raytracingImage{ nullptr }
-	, m_raytracingImageView{ VK_NULL_HANDLE }
 	, m_raytracingUniformBuffer{ nullptr }
 	, m_raytracingDescriptorSetLayout{ VK_NULL_HANDLE }
 	, m_raytracingPipelineLayout{ VK_NULL_HANDLE }
@@ -89,7 +86,6 @@ Application::~Application() {
 	vkDestroyPipelineLayout(m_device->handle(), m_raytracingPipelineLayout, nullptr);
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_raytracingDescriptorSetLayout, nullptr);
 	delete m_raytracingUniformBuffer;
-	vkDestroyImageView(m_device->handle(), m_raytracingImageView, nullptr);
 	delete m_raytracingImage;
 
 	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
@@ -105,7 +101,6 @@ Application::~Application() {
 	vkDestroyFence(m_device->handle(), m_blitFence, nullptr);
 
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_descriptorSet);
-	vkDestroyImageView(m_device->handle(), m_modelTextureView, nullptr);
 	vkDestroySampler(m_device->handle(), m_sampler, nullptr);
 	delete m_modelTexture;
 	delete m_model;
@@ -115,13 +110,9 @@ Application::~Application() {
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_descriptorSetLayout, nullptr);
 	vkDestroyRenderPass(m_device->handle(), m_renderPass, nullptr);
 	vkDestroyFramebuffer(m_device->handle(), m_framebuffer, nullptr);
-	vkDestroyImageView(m_device->handle(), m_GBuffer.depthImageView, nullptr);
 	delete m_GBuffer.depthImage;
-	vkDestroyImageView(m_device->handle(), m_GBuffer.normalImageView, nullptr);
 	delete m_GBuffer.normalImage;
-	vkDestroyImageView(m_device->handle(), m_GBuffer.colorImageView, nullptr);
 	delete m_GBuffer.colorImage;
-	vkDestroyImageView(m_device->handle(), m_depthImageView, nullptr);
 	delete m_depthImage;
 
 	delete m_device;
@@ -160,7 +151,7 @@ bool Application::init() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_depthImageView = m_depthImage->createView(VK_IMAGE_ASPECT_DEPTH_BIT);
+	m_depthImage->createView(VK_IMAGE_ASPECT_DEPTH_BIT);
 	m_depthImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	// create the images for the GBuffer
@@ -173,7 +164,7 @@ bool Application::init() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_GBuffer.colorImageView = m_GBuffer.colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+	m_GBuffer.colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	m_GBuffer.normalImage = new Image(m_device);
 	m_GBuffer.normalImage->create(
@@ -184,7 +175,7 @@ bool Application::init() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_GBuffer.normalImageView = m_GBuffer.normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+	m_GBuffer.normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	m_GBuffer.depthImage = new Image(m_device);
 	m_GBuffer.depthImage->create(
@@ -195,7 +186,7 @@ bool Application::init() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_GBuffer.depthImageView = m_GBuffer.depthImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+	m_GBuffer.depthImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// create the render pass
 	RenderPassBuilder renderPassBuilder;
@@ -211,10 +202,10 @@ bool Application::init() {
 	// create the framebuffer
 	FramebufferBuilder framebufferBuilder;
 	framebufferBuilder
-		.addAttachment(m_GBuffer.colorImageView)
-		.addAttachment(m_GBuffer.normalImageView)
-		.addAttachment(m_GBuffer.depthImageView)
-		.addAttachment(m_depthImageView);
+		.addAttachment(m_GBuffer.colorImage->viewHandle())
+		.addAttachment(m_GBuffer.normalImage->viewHandle())
+		.addAttachment(m_GBuffer.depthImage->viewHandle())
+		.addAttachment(m_depthImage->viewHandle());
 	m_framebuffer = framebufferBuilder.build(*m_device, m_renderPass, m_width, m_height);
 
 	// create layout for the next pipeline
@@ -249,7 +240,7 @@ bool Application::init() {
 	// load the texture of the model
 	m_modelTexture = new Image(m_device);
 	m_modelTexture->create("../../assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
-	m_modelTextureView = m_modelTexture->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+	m_modelTexture->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// create a sampler for the texture
 	SamplerBuilder samplerBuilder;
@@ -260,7 +251,7 @@ bool Application::init() {
 	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_descriptorSetLayout);
 	descriptorSetBuilder
 		.addUniformBuffer(m_uniformBuffer->getBuffer(), sizeof(PerFrameUniformBufferObject), 0)
-		.addImage(m_sampler, m_modelTextureView, 1);
+		.addImage(m_sampler, m_modelTexture->viewHandle(), 1);
 	m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
 
 	// for raytracing, we should specific objects
@@ -585,7 +576,7 @@ void Application::setupRaytracingData() {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_raytracingImageView = m_raytracingImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+	m_raytracingImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// uniform buffer
 	m_raytracingUniformBuffer = new UniformBuffer<RayParams>(m_device);
@@ -628,7 +619,7 @@ void Application::setupRaytracingData() {
 	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_raytracingDescriptorSetLayout);
 	descriptorSetBuilder
 		.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
-		.addStorageImage(m_raytracingImageView, 1)
+		.addStorageImage(m_raytracingImage->viewHandle(), 1)
 		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), sizeof(RayParams), 2);
 	m_raytracingDescriptorSet = descriptorSetBuilder.buildAndUpdate();
 }
