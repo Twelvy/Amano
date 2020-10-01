@@ -8,6 +8,7 @@
 #include "Builder/RaytracingPipelineBuilder.h"
 #include "Builder/RenderPassBuilder.h"
 #include "Builder/SamplerBuilder.h"
+#include "Builder/TransitionImageBarrierBuilder.h"
 
 #include <chrono>
 #include <iostream>
@@ -342,7 +343,6 @@ void Application::onKeyEventCallback(int key, int scancode, int action, int mods
 			m_cameraAngle -= 360.0f;
 		}
 	}
-	
 }
 
 void Application::drawFrame() {
@@ -476,33 +476,12 @@ void Application::recordRenderCommands() {
 	m_renderCommandBuffer = pQueue->beginCommands();
 
 	// transition images from blit to render target
-	std::array<VkImageMemoryBarrier, 3> barriers;
-	for (int i = 0; i < barriers.size(); ++i) {
-		barriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barriers[i].pNext = nullptr;
-		barriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barriers[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barriers[i].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barriers[i].subresourceRange.baseArrayLayer = 0;
-		barriers[i].subresourceRange.layerCount = 1;
-		barriers[i].subresourceRange.levelCount = 1;
-		barriers[i].subresourceRange.baseMipLevel = 0;
-		barriers[i].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		barriers[i].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		barriers[i].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		barriers[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	}
-
-	barriers[0].image = m_GBuffer.colorImage->handle();
-	barriers[1].image = m_GBuffer.normalImage->handle();
-	barriers[2].image = m_GBuffer.depthImage->handle();
-
-	vkCmdPipelineBarrier(m_renderCommandBuffer,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
-		0, nullptr,
-		0, nullptr,
-		static_cast<uint32_t>(barriers.size()),
-		barriers.data());
+	TransitionImageBarrierBuilder<3> transition;
+	transition
+		.setLayoutTransition(0, m_GBuffer.colorImage->handle(),  VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+		.setLayoutTransition(1, m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+		.setLayoutTransition(2, m_GBuffer.depthImage->handle(),  VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+	transition.execute(m_renderCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 	
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

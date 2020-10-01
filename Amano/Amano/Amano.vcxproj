@@ -185,6 +185,7 @@
     <ClInclude Include="Builder\RenderPassBuilder.h" />
     <ClInclude Include="Builder\SamplerBuilder.h" />
     <ClInclude Include="Builder\ShaderBindingTableBuilder.h" />
+    <ClInclude Include="Builder\TransitionImageBarrierBuilder.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="Extensions.h" />
