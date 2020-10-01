@@ -43,14 +43,19 @@ public:
 	// There is no need to call it manually
 	void notifyFramebufferResized(int width, int height);
 
-	// Receives the keyboard input
+	// Receives the mouse input
 	// There is no need to call it manually
-	void onKeyEventCallback(int key, int scancode, int action, int mods);
+	void onCursorCallback(double xpos, double ypos);
+
+	// Receives the scroll input
+	// There is no need to call it manually
+	void onScrollCallback(double xscroll, double yscroll);
 
 private:
 	void initWindow();
 
 	void drawFrame();
+	void updateCameraPosition();
 	void updateUniformBuffer();
 
 	// multiple methods to record the commands once
@@ -115,8 +120,12 @@ private:
 	AccelerationStructures m_accelerationStructures;
 	ShaderBindingTables m_shaderBindingTables;
 	VkCommandBuffer m_raytracingCommandBuffer;
-
-	float m_cameraAngle;
+	
+	// camera control
+	bool m_isDragging;
+	glm::vec2 m_mousePrevPos;
+	glm::vec3 m_cameraOrbitAnglesAndDistance;
+	glm::vec3 m_cameraPosition;
 };
 
 }

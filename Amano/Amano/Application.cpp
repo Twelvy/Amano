@@ -28,10 +28,14 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 	app->notifyFramebufferResized(width, height);
 }
 
-static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
+static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
 	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
-	app->onKeyEventCallback(key, scancode, action, mods);
+	app->onCursorCallback(xpos, ypos);
+}
+
+static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
+	app->onScrollCallback(xoffset, yoffset);
 }
 
 }
@@ -75,8 +79,12 @@ Application::Application()
 	, m_accelerationStructures{}
 	, m_shaderBindingTables{}
 	, m_raytracingCommandBuffer{ VK_NULL_HANDLE }
-	, m_cameraAngle(45.0f)
+	, m_isDragging{ false }
+	, m_mousePrevPos()
+	, m_cameraOrbitAnglesAndDistance(45.0f, 45.0f, 2.0f)
+	, m_cameraPosition()
 {
+	updateCameraPosition();
 }
 
 Application::~Application() {
@@ -123,6 +131,37 @@ Application::~Application() {
 
 	glfwDestroyWindow(m_window);
 	glfwTerminate();
+}
+
+void Application::run() {
+	while (!glfwWindowShouldClose(m_window)) {
+		glfwPollEvents();
+		drawFrame();
+	}
+
+	m_device->waitIdle();
+}
+
+void Application::notifyFramebufferResized(int width, int height) {
+	m_framebufferResized = true;
+	m_width = static_cast<uint32_t>(width);
+	m_height = static_cast<uint32_t>(height);
+}
+
+void Application::initWindow() {
+	glfwInit();
+
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // do not allow resizing for now
+
+	m_width = static_cast<uint32_t>(WIDTH);
+	m_height = static_cast<uint32_t>(HEIGHT);
+	m_window = glfwCreateWindow(WIDTH, HEIGHT, "Amano Vulkan", nullptr, nullptr);
+	glfwSetWindowUserPointer(m_window, this);
+	// NOTE: the window cannot be resized for now
+	glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
+	glfwSetCursorPosCallback(m_window, cursorPosCallback);
+	glfwSetScrollCallback(m_window, scrollCallback);
 }
 
 bool Application::init() {
@@ -296,50 +335,46 @@ bool Application::init() {
 	return true;
 }
 
-void Application::run() {
-	while (!glfwWindowShouldClose(m_window)) {
-		glfwPollEvents();
-		drawFrame();
+void Application::onCursorCallback(double xpos, double ypos) {
+	bool isDragging = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+	glm::vec2 newPos(static_cast<float>(xpos), static_cast<float>(ypos));
+
+	// move!
+	if (isDragging && m_isDragging) {
+		glm::vec3 moveDir(newPos - m_mousePrevPos, 0.0f);
+		moveDir *= glm::vec3(static_cast<float>(m_height) / static_cast<float>(m_width), 1.0f, 1.0f);
+		m_cameraOrbitAnglesAndDistance -= moveDir;
+
+		while (m_cameraOrbitAnglesAndDistance.x > 360.0f)
+			m_cameraOrbitAnglesAndDistance.x -= 360.0f;
+		while (m_cameraOrbitAnglesAndDistance.x < 0.0f)
+			m_cameraOrbitAnglesAndDistance.x += 360.0f;
+		while (m_cameraOrbitAnglesAndDistance.y > 180.0f)
+			m_cameraOrbitAnglesAndDistance.y -= 180.0f;
+		while (m_cameraOrbitAnglesAndDistance.y < 0.0f)
+			m_cameraOrbitAnglesAndDistance.y += 180.0f;
+
+		updateCameraPosition();
 	}
 
-	m_device->waitIdle();
+	// set status and save position if necessary
+	m_isDragging = isDragging;
+	if (m_isDragging)
+		m_mousePrevPos = newPos;
 }
 
-void Application::notifyFramebufferResized(int width, int height) {
-	m_framebufferResized = true;
-	m_width = static_cast<uint32_t>(width);
-	m_height = static_cast<uint32_t>(height);
+void Application::onScrollCallback(double xscroll, double yscroll) {
+	m_cameraOrbitAnglesAndDistance.z -= static_cast<float>(yscroll) / 10.0f;
+	if (m_cameraOrbitAnglesAndDistance.z < 0.01f)
+		m_cameraOrbitAnglesAndDistance.z = 0.01f;
+	updateCameraPosition();
 }
 
-void Application::initWindow() {
-	glfwInit();
-
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // do not allow resizing for now
-
-	m_width = static_cast<uint32_t>(WIDTH);
-	m_height = static_cast<uint32_t>(HEIGHT);
-	m_window = glfwCreateWindow(WIDTH, HEIGHT, "Amano Vulkan", nullptr, nullptr);
-	glfwSetWindowUserPointer(m_window, this);
-	// NOTE: the window cannot be resized for now
-	glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
-	glfwSetKeyCallback(m_window, keyCallback);
-}
-
-
-void Application::onKeyEventCallback(int key, int scancode, int action, int mods) {
-	if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-		m_cameraAngle -= 5.0f;
-		while (m_cameraAngle < 0.0f) {
-			m_cameraAngle += 360.0f;
-		}
-	}
-	else if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-		m_cameraAngle += 5.0f;
-		while (m_cameraAngle > 360.0f) {
-			m_cameraAngle -= 360.0f;
-		}
-	}
+void Application::updateCameraPosition() {
+	float tmp = sinf(glm::radians(m_cameraOrbitAnglesAndDistance.y));
+	m_cameraPosition.z = m_cameraOrbitAnglesAndDistance.z * cosf(glm::radians(m_cameraOrbitAnglesAndDistance.y));
+	m_cameraPosition.x = m_cameraOrbitAnglesAndDistance.z * tmp * cosf(glm::radians(m_cameraOrbitAnglesAndDistance.x));
+	m_cameraPosition.y = m_cameraOrbitAnglesAndDistance.z * tmp * sinf(glm::radians(m_cameraOrbitAnglesAndDistance.x));
 }
 
 void Application::drawFrame() {
@@ -444,8 +479,9 @@ void Application::updateUniformBuffer() {
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 	//glm::vec3 origin = glm::vec3(2.8f * cosf(time), 2.8f * sinf(time), 2.0f);
 
-	float angleRadians = glm::radians(m_cameraAngle);
-	glm::vec3 origin = glm::vec3(2.8f * cosf(angleRadians), 2.8f * sinf(angleRadians), 2.0f);
+	//float angleRadians = glm::radians(m_cameraAngle);
+	//glm::vec3 origin = glm::vec3(2.8f * cosf(angleRadians), 2.8f * sinf(angleRadians), 2.0f);
+	glm::vec3 origin = m_cameraPosition;
 
 	// update the gbuffer shader uniform
 	PerFrameUniformBufferObject ubo{};
@@ -666,8 +702,7 @@ void Application::recordRaytracingCommands() {
 		m_shaderBindingTables.chitShaderBindingTable.buffer, 0, m_shaderBindingTables.chitShaderBindingTable.groupSize, // offset and stride for chit
 		nullptr, 0, 0,
 		m_width, m_height, 1);
-
-
+	
 	// transition the raytracing image to be blitted
 	transition
 		.setLayouts(0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
