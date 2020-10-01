@@ -9,4 +9,8 @@ SET VULKAN_SDK_GLSLLANG=%VULKAN_SDK%/Bin/glslangValidator.exe
 %VULKAN_SDK_GLSLLANG% -V ../shaders/closesthit.rchit -o ../compiled_shaders/closesthit.spv
 %VULKAN_SDK_GLSLLANG% -V ../shaders/miss.rmiss       -o ../compiled_shaders/miss.spv
 
+%VULKAN_SDK_GLSLLANG% -V ../shaders/shadow_raygen.rgen      -o ../compiled_shaders/shadow_raygen.spv
+%VULKAN_SDK_GLSLLANG% -V ../shaders/shadow_closesthit.rchit -o ../compiled_shaders/shadow_closesthit.spv
+%VULKAN_SDK_GLSLLANG% -V ../shaders/shadow_miss.rmiss       -o ../compiled_shaders/shadow_miss.spv
+
 pause

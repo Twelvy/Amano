@@ -1,0 +1,66 @@
+// Ray generation shader
+// computes the shadow
+#version 460
+#extension GL_NV_ray_tracing : require
+
+layout(location = 0) rayPayloadNV vec4 payload;
+layout(binding = 0, set = 0) uniform accelerationStructureNV acc;
+layout(binding = 1, rgba8) uniform image2D img;
+layout(binding = 2, std140, set = 0) uniform rayParams
+{
+    mat4 viewInverse;
+    mat4 projInverse;
+    vec3 rayOrigin;
+};
+layout(binding = 3, r32f, set = 0) uniform image2D depthImg;
+layout(binding = 4, rgba8_snorm, set = 0) uniform image2D worldNormalImg;
+layout(binding = 5, std140, set = 0) uniform lightInformation
+{
+    vec3 lightPosition;
+};
+
+vec3 computeDir2() {
+    const vec2 pixel = vec2(gl_LaunchIDNV.x + 0.5, gl_LaunchIDNV.y + 0.5);
+    const vec2 uv = (pixel / gl_LaunchSizeNV.xy) * 2.0 - 1.0;
+    vec4 target = viewInverse * projInverse * (vec4(uv.x, uv.y, 0.0, 1.0));
+    vec3 dir = target.xyz / target.w - rayOrigin;
+    return normalize(dir);
+}
+vec3 computeDir(vec3 origin) {
+    vec3 dir = lightPosition - origin;
+    return normalize(dir);
+}
+
+void main() {
+    const vec2 pixel = vec2(gl_LaunchIDNV.x + 0.5, gl_LaunchIDNV.y + 0.5);
+    const vec2 clipPos = (pixel / gl_LaunchSizeNV.xy) * 2.0 - 1.0;
+    const float depth = imageLoad(depthImg, ivec2(gl_LaunchIDNV)).x;
+
+    if (depth > 0.0 && depth < 1.0) {
+        const vec3 worldNormal = imageLoad(worldNormalImg, ivec2(gl_LaunchIDNV)).xyz;
+        vec4 target = viewInverse * projInverse * vec4(clipPos.xy, depth, 1.0);
+        vec3 origin = target.xyz / target.w;
+        vec3 dir = computeDir(origin);
+
+        if (dot(worldNormal, dir) > 0.0) {
+            traceNV(acc,
+                    gl_RayFlagsOpaqueNV | gl_RayFlagsTerminateOnFirstHitNV,
+                    0xff,
+                    0,
+                    0,
+                    0,
+                    origin,
+                    0.001,
+                    dir,
+                    1000.0,
+                    0);
+            imageStore(img, ivec2(gl_LaunchIDNV), payload);
+        }
+        else {
+            imageStore(img, ivec2(gl_LaunchIDNV), vec4(0.0, 0.0, 0.0, 0.0));
+        }
+    }
+    else {
+        imageStore(img, ivec2(gl_LaunchIDNV), vec4(1.0, 1.0, 1.0, 1.0));
+    }
+}

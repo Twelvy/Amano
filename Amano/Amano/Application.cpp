@@ -175,7 +175,7 @@ bool Application::init() {
 		1,
 		normalFormat,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	m_GBuffer.normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -186,7 +186,7 @@ bool Application::init() {
 		1,
 		depthFormat2,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	m_GBuffer.depthImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -194,8 +194,8 @@ bool Application::init() {
 	RenderPassBuilder renderPassBuilder;
 	renderPassBuilder
 		.addColorAttachment(colorFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) // attachment 0 for color
-		.addColorAttachment(normalFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) // attachment 1 for normal
-		.addColorAttachment(depthFormat2, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) // attachment 2 for depth
+		.addColorAttachment(normalFormat, VK_IMAGE_LAYOUT_GENERAL) // attachment 1 for normal
+		.addColorAttachment(depthFormat2, VK_IMAGE_LAYOUT_GENERAL) // attachment 2 for depth
 		.addDepthAttachment(depthFormat) // attachment 3 for depth buffer
 		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0, 1, 2 }, 3) // subpass 0
 		.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
@@ -448,7 +448,8 @@ void Application::updateUniformBuffer() {
 
 	// update the gbuffer shader uniform
 	PerFrameUniformBufferObject ubo{};
-	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	//ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.model = glm::mat4(1.0f);
 	ubo.view = glm::lookAt(origin, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), m_width / (float)m_height, 0.1f, 10.0f);
 
@@ -468,7 +469,7 @@ void Application::updateUniformBuffer() {
 
 	// update the light position
 	LightInformation lightUbo;
-	lightUbo.lightPosition = glm::vec3(0.3f * cosf(time), 0.3f * sinf(time), 0.5f);
+	lightUbo.lightPosition = glm::vec3(0.2f * cos(time) + 0.2f, 0.2f * sinf(time), 0.8f);
 	m_lightUniformBuffer->update(lightUbo);
 }
 
@@ -557,10 +558,10 @@ void Application::recordBlitCommands() {
 		blit.dstSubresource.layerCount = 1;
 
 		vkCmdBlitImage(blitCommandBuffer,
-			m_GBuffer.colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			//m_GBuffer.colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_GBuffer.depthImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			//m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
 			VK_FILTER_LINEAR);
@@ -596,6 +597,9 @@ void Application::setupRaytracingData() {
 	descriptorSetLayoutbuilder
 		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, VK_SHADER_STAGE_RAYGEN_BIT_NV)
 		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)
 		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV);
 	m_raytracingDescriptorSetLayout = descriptorSetLayoutbuilder.build(*m_device);
 
@@ -607,9 +611,9 @@ void Application::setupRaytracingData() {
 	// load the shaders and create the pipeline
 	RaytracingPipelineBuilder raytracingPipelineBuilder(m_device);
 	raytracingPipelineBuilder
-		.addShader("../../compiled_shaders/raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addShader("../../compiled_shaders/miss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
-		.addShader("../../compiled_shaders/closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+		.addShader("../../compiled_shaders/shadow_raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addShader("../../compiled_shaders/shadow_miss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
+		.addShader("../../compiled_shaders/shadow_closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
 	m_raytracingPipeline = raytracingPipelineBuilder.build(m_raytracingPipelineLayout, 1);
 
 	// create the shader binding table associated to this pipeline
@@ -630,7 +634,10 @@ void Application::setupRaytracingData() {
 	descriptorSetBuilder
 		.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
 		.addStorageImage(m_raytracingImage->viewHandle(), 1)
-		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2);
+		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2)
+		.addStorageImage(m_GBuffer.depthImage->viewHandle(), 3)
+		.addStorageImage(m_GBuffer.normalImage->viewHandle(), 4)
+		.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 5);
 	m_raytracingDescriptorSet = descriptorSetBuilder.buildAndUpdate();
 }
 
