@@ -7,6 +7,12 @@ namespace Amano {
 // Helper class to transition an image layout
 // This can be used several times to chain transitions
 // Some options are missing and will be added in the future based on the necessity
+// By default:
+//   - oldLayout and newLayou are VK_IMAGE_LAYOUT_UNDEFINED
+//   - srcAccessMask and dstAccessMask are 0
+//   - aspectMask is VK_IMAGE_ASPECT_COLOR_BIT
+//   - layerCount is 1
+//   - baseMipLevel is 0
 template<uint32_t COUNT>
 class TransitionImageBarrierBuilder {
 
@@ -26,8 +32,8 @@ public:
 			m_barriers[i].subresourceRange.baseMipLevel = 0;
 			m_barriers[i].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			m_barriers[i].newLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			m_barriers[i].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-			m_barriers[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			m_barriers[i].srcAccessMask = 0;
+			m_barriers[i].dstAccessMask = 0;
 		}
 	}
 
@@ -38,18 +44,40 @@ public:
 		return *this;
 	}
 
+	TransitionImageBarrierBuilder& setLevelCount(uint32_t index, uint32_t levelCount) {
+		m_barriers[index].subresourceRange.levelCount = levelCount;
+		return *this;
+	}
+
+	TransitionImageBarrierBuilder& setBaseMipLevel(uint32_t index, uint32_t mipLevel) {
+		m_barriers[index].subresourceRange.baseMipLevel = mipLevel;
+		return *this;
+	}
+
+	TransitionImageBarrierBuilder& setAspectMask(uint32_t index, VkImageAspectFlags aspectMask) {
+		m_barriers[index].subresourceRange.aspectMask = aspectMask;
+		return *this;
+	}
+
 	// NOTE: maybe those barriers should be tied to the image.
 	// They can store the actual layout of it
 	// However, in a multithread environment, it doesn't work well...
-	TransitionImageBarrierBuilder& setLayoutTransition(uint32_t index, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
+	TransitionImageBarrierBuilder& setLayouts(uint32_t index, VkImageLayout oldLayout, VkImageLayout newLayout) {
 		m_barriers[index].oldLayout = oldLayout;
 		m_barriers[index].newLayout = newLayout;
+		return *this;
+	}
+
+	// NOTE: maybe those barriers should be tied to the image.
+	// They can store the actual layout of it
+	// However, in a multithread environment, it doesn't work well...
+	TransitionImageBarrierBuilder& setAccessMasks(uint32_t index, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
 		m_barriers[index].srcAccessMask = srcAccessMask;
 		m_barriers[index].dstAccessMask = dstAccessMask;
 		return *this;
 	}
 
-	void execute(VkCommandBuffer commandBuffer, VkPipelineStageFlagBits srcStageMask, VkPipelineStageFlagBits dstStageMask) {
+	void execute(VkCommandBuffer commandBuffer, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask) {
 		vkCmdPipelineBarrier(commandBuffer,
 			srcStageMask, dstStageMask, 0,
 			0, nullptr,

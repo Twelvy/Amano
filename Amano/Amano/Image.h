@@ -9,6 +9,8 @@ namespace Amano {
 
 class Queue;
 
+// This class is used to create a texture and its associated buffer
+// It is also used to generate a view on it
 class Image
 {
 public:

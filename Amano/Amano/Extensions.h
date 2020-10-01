@@ -4,6 +4,7 @@
 
 namespace Amano {
 
+// This class fetches methods needed for raytracing
 class Extensions {
 public:
 	bool queryRaytracingFunctions(VkInstance instance);
