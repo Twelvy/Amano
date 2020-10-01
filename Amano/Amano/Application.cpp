@@ -477,10 +477,12 @@ void Application::recordRenderCommands() {
 
 	// transition images from blit to render target
 	TransitionImageBarrierBuilder<3> transition;
+	for (uint32_t i = 0; i < transition.getCount(); ++i)
+		transition.setLayoutTransition(i, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 	transition
-		.setLayoutTransition(0, m_GBuffer.colorImage->handle(),  VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-		.setLayoutTransition(1, m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-		.setLayoutTransition(2, m_GBuffer.depthImage->handle(),  VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+		.setImage(0, m_GBuffer.colorImage->handle())
+		.setImage(1, m_GBuffer.normalImage->handle())
+		.setImage(2, m_GBuffer.depthImage->handle());
 	transition.execute(m_renderCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 	
 	VkRenderPassBeginInfo renderPassInfo{};
@@ -526,28 +528,12 @@ void Application::recordBlitCommands() {
 		VkCommandBuffer blitCommandBuffer = pQueue->beginCommands();
 		m_blitCommandBuffers[i] = blitCommandBuffer;
 
-		VkImageMemoryBarrier barrier{};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.pNext = nullptr;
-		barrier.image = m_device->getSwapChainImages()[i];
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
-		barrier.subresourceRange.levelCount = 1;
-
-		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-		vkCmdPipelineBarrier(blitCommandBuffer,
-			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-			0, nullptr,
-			0, nullptr,
-			1, &barrier);
+		// transition the swapchain
+		TransitionImageBarrierBuilder<1> transition;
+		transition
+			.setImage(0, m_device->getSwapChainImages()[i])
+			.setLayoutTransition(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+		transition.execute(blitCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 		VkImageBlit blit{};
 		blit.srcOffsets[0] = { 0, 0, 0 };
@@ -572,16 +558,9 @@ void Application::recordBlitCommands() {
 			1, &blit,
 			VK_FILTER_LINEAR);
 
-		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-
-		vkCmdPipelineBarrier(blitCommandBuffer,
-			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
-			0, nullptr,
-			0, nullptr,
-			1, &barrier);
+		// transition the swapchain again to present it
+		transition.setLayoutTransition(0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
+		transition.execute(blitCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
 		pQueue->endCommands(blitCommandBuffer);
 	}
@@ -646,29 +625,12 @@ void Application::recordRaytracingCommands() {
 	Queue* pQueue = m_device->getQueue(QueueType::eGraphics);
 	m_raytracingCommandBuffer = pQueue->beginCommands();
 
-	VkImageMemoryBarrier inBarrier{};
-	inBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	inBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	inBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-	inBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	inBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	inBarrier.image = m_raytracingImage->handle();
-	inBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	inBarrier.subresourceRange.baseMipLevel = 0;
-	inBarrier.subresourceRange.levelCount = 1;
-	inBarrier.subresourceRange.baseArrayLayer = 0;
-	inBarrier.subresourceRange.layerCount = 1;
-	inBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // TODO
-	inBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO
-
-	vkCmdPipelineBarrier(
-		m_raytracingCommandBuffer,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		0,
-		0, nullptr,
-		0, nullptr,
-		1, &inBarrier);
+	// transition the raytracing output buffer from copy to storage
+	TransitionImageBarrierBuilder<1> transition;
+	transition
+		.setImage(0, m_raytracingImage->handle())
+		.setLayoutTransition(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT);
+	transition.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
 	vkCmdBindPipeline(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipeline);
 	vkCmdBindDescriptorSets(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipelineLayout, 0, 1, &m_raytracingDescriptorSet, 0, nullptr);
@@ -681,31 +643,9 @@ void Application::recordRaytracingCommands() {
 		m_width, m_height, 1);
 
 
-	// transition image to be blitted
-	VkImageMemoryBarrier barrier{};
-	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image = m_raytracingImage->handle();
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.baseMipLevel = 0;
-	barrier.subresourceRange.levelCount = 1;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = 1;
-	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO
-	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // TODO
-
-
-	vkCmdPipelineBarrier(
-		m_raytracingCommandBuffer,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		0,
-		0, nullptr,
-		0, nullptr,
-		1, &barrier);
+	// transition the raytracing image to be blitted
+	transition.setLayoutTransition(0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+	transition.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
 	pQueue->endCommands(m_raytracingCommandBuffer);
 }

@@ -28,13 +28,21 @@ public:
 		}
 	}
 
-	TransitionImageBarrierBuilder& setLayoutTransition(uint32_t index, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
+	uint32_t getCount() { return COUNT; }
+
+	TransitionImageBarrierBuilder& setImage(uint32_t index, VkImage image) {
 		m_barriers[index].image = image;
+		return *this;
+	}
+
+	// NOTE: maybe those barriers should be tied to the image.
+	// They can store the actual layout of it
+	// However, in a multithread environment, it doesn't work well...
+	TransitionImageBarrierBuilder& setLayoutTransition(uint32_t index, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
 		m_barriers[index].oldLayout = oldLayout;
 		m_barriers[index].newLayout = newLayout;
 		m_barriers[index].srcAccessMask = srcAccessMask;
 		m_barriers[index].dstAccessMask = dstAccessMask;
-
 		return *this;
 	}
 
