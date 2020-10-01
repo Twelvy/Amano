@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../Device.h"
-#include "../Model.h"
+#include "../Mesh.h"
 
 #include <vector>
 
@@ -33,10 +33,10 @@ class RaytracingAccelerationStructureBuilder {
 public:
 	RaytracingAccelerationStructureBuilder(Device* device, VkPipeline pipeline);
 
-	AccelerationStructures build(Model& model);
+	AccelerationStructures build(Mesh& mesh);
 
 private:
-	bool createBottomLevelAccelerationStructure(VkCommandBuffer cmd, Model& model);
+	bool createBottomLevelAccelerationStructure(VkCommandBuffer cmd, Mesh& mesh);
 	bool createTopLevelAccelerationStructure(VkCommandBuffer cmd);
 
 private:

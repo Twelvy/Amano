@@ -2,7 +2,7 @@
 
 #include "Device.h"
 #include "Image.h"
-#include "Model.h"
+#include "Mesh.h"
 #include "UniformBuffer.h"
 #include "Builder/RaytracingAccelerationStructureBuilder.h"
 #include "Builder/ShaderBindingTableBuilder.h"
@@ -90,7 +90,7 @@ private:
 	VkPipeline m_pipeline;
 	UniformBuffer<PerFrameUniformBufferObject>* m_uniformBuffer;
 	UniformBuffer<LightInformation>* m_lightUniformBuffer;
-	Model* m_model;
+	Mesh* m_mesh;
 	Image* m_modelTexture;
 	VkSampler m_sampler;
 	VkDescriptorSet m_descriptorSet;

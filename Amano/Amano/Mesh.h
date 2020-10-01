@@ -7,12 +7,14 @@ namespace Amano {
 
 class Device;
 
-class Model
+class Mesh
 {
 public:
-	Model(Device* device);
-	~Model();
+	Mesh(Device* device);
+	~Mesh();
 
+	// Loads the model at the given file path
+	// Creates all the necessary buffers
 	bool create(const std::string& filename);
 
 	VkBuffer getVertexBuffer() { return m_vertexBuffer; }

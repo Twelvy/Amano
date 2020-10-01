@@ -179,7 +179,7 @@
     <ClCompile Include="Extensions.cpp" />
     <ClCompile Include="Image.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Model.cpp" />
+    <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="Queue.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -200,7 +200,7 @@
     <ClInclude Include="Device.h" />
     <ClInclude Include="Extensions.h" />
     <ClInclude Include="Image.h" />
-    <ClInclude Include="Model.h" />
+    <ClInclude Include="Mesh.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="UniformBuffer.h" />
   </ItemGroup>

@@ -56,10 +56,10 @@ void Queue::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
 
-	vkQueueSubmit(m_queue, 1, &submitInfo, VK_NULL_HANDLE);
+	submit(&submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(m_queue);
 
-	vkFreeCommandBuffers(m_device->handle(), m_commandPool, 1, &commandBuffer);
+	freeCommandBuffer(commandBuffer);
 }
 
 

@@ -1,5 +1,5 @@
 #include "Config.h"
-#include "Model.h"
+#include "Mesh.h"
 #include "Device.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -23,7 +23,7 @@ namespace std {
 
 namespace Amano {
 
-Model::Model(Device* device)
+Mesh::Mesh(Device* device)
 	: m_device{ device }
 	, m_vertices()
 	, m_indices()
@@ -34,20 +34,20 @@ Model::Model(Device* device)
 {
 }
 
-Model::~Model() {
+Mesh::~Mesh() {
 	m_device->destroyBuffer(m_vertexBuffer);
 	m_device->destroyBuffer(m_indexBuffer);
 	m_device->freeDeviceMemory(m_vertexBufferMemory);
 	m_device->freeDeviceMemory(m_indexBufferMemory);
 }
 
-bool Model::create(const std::string& filename) {
+bool Mesh::create(const std::string& filename) {
 	return load(filename)
 		&& createVertexBuffer()
 		&& createIndexBuffer();
 }
 
-bool Model::load(const std::string& filename) {
+bool Mesh::load(const std::string& filename) {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -96,7 +96,7 @@ bool Model::load(const std::string& filename) {
 	return true;
 }
 
-bool Model::createVertexBuffer() {
+bool Mesh::createVertexBuffer() {
 	VkDeviceSize bufferSize = sizeof(m_vertices[0]) * m_vertices.size();
 
 	VkBuffer stagingBuffer;
@@ -130,7 +130,7 @@ bool Model::createVertexBuffer() {
 	return true;
 }
 
-bool Model::createIndexBuffer() {
+bool Mesh::createIndexBuffer() {
 	VkDeviceSize bufferSize = sizeof(m_indices[0]) * m_indices.size();
 
 	VkBuffer stagingBuffer;

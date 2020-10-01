@@ -54,7 +54,7 @@ Application::Application()
 	, m_pipeline{ VK_NULL_HANDLE }
 	, m_uniformBuffer{ nullptr }
 	, m_lightUniformBuffer{ nullptr }
-	, m_model{ nullptr }
+	, m_mesh{ nullptr }
 	, m_modelTexture{ nullptr }
 	, m_sampler{ VK_NULL_HANDLE }
 	, m_descriptorSet{ VK_NULL_HANDLE }
@@ -105,7 +105,7 @@ Application::~Application() {
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_descriptorSet);
 	vkDestroySampler(m_device->handle(), m_sampler, nullptr);
 	delete m_modelTexture;
-	delete m_model;
+	delete m_mesh;
 	delete m_uniformBuffer;
 	delete m_lightUniformBuffer;
 	vkDestroyPipeline(m_device->handle(), m_pipeline, nullptr);
@@ -239,8 +239,8 @@ bool Application::init() {
 	m_lightUniformBuffer = new UniformBuffer<LightInformation>(m_device);
 
 	// load the model to display
-	m_model = new Model(m_device);
-	m_model->create("../../assets/models/viking_room.obj");
+	m_mesh = new Mesh(m_device);
+	m_mesh->create("../../assets/models/viking_room.obj");
 
 	// load the texture of the model
 	m_modelTexture = new Image(m_device);
@@ -512,14 +512,14 @@ void Application::recordRenderCommands() {
 
 	vkCmdBindPipeline(m_renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
-	VkBuffer vertexBuffers[] = { m_model->getVertexBuffer() };
+	VkBuffer vertexBuffers[] = { m_mesh->getVertexBuffer() };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(m_renderCommandBuffer, 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(m_renderCommandBuffer, m_model->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(m_renderCommandBuffer, m_mesh->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	vkCmdBindDescriptorSets(m_renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
-	vkCmdDrawIndexed(m_renderCommandBuffer, m_model->getIndexCount(), 1, 0, 0, 0);
+	vkCmdDrawIndexed(m_renderCommandBuffer, m_mesh->getIndexCount(), 1, 0, 0, 0);
 
 	// the render pass will transition the framebuffer from render target to blit source
 	vkCmdEndRenderPass(m_renderCommandBuffer);
@@ -629,7 +629,7 @@ void Application::setupRaytracingData() {
 	// build the acceleration structure for 1 model
 	// we should extend it to more models
 	RaytracingAccelerationStructureBuilder accelerationStructureBuilder(m_device, m_raytracingPipeline);
-	m_accelerationStructures = accelerationStructureBuilder.build(*m_model);
+	m_accelerationStructures = accelerationStructureBuilder.build(*m_mesh);
 
 	// update the descriptor set
 	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_raytracingDescriptorSetLayout);

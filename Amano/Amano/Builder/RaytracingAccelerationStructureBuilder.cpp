@@ -88,7 +88,7 @@ RaytracingAccelerationStructureBuilder::RaytracingAccelerationStructureBuilder(D
 {
 }
 
-bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStructure(VkCommandBuffer cmd, Model& model) {
+bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStructure(VkCommandBuffer cmd, Mesh& mesh) {
 	// we should create one bottom acceleration structure per mesh
 
 	// geometries
@@ -99,12 +99,12 @@ bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStruct
 	geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_NV;
 	geometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV;
 	geometry.geometry.triangles.pNext = nullptr;
-	geometry.geometry.triangles.vertexData = model.getVertexBuffer();
-	geometry.geometry.triangles.vertexCount = model.getVertexCount();
+	geometry.geometry.triangles.vertexData = mesh.getVertexBuffer();
+	geometry.geometry.triangles.vertexCount = mesh.getVertexCount();
 	geometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 	geometry.geometry.triangles.vertexStride = sizeof(Vertex);
-	geometry.geometry.triangles.indexData = model.getIndexBuffer();
-	geometry.geometry.triangles.indexCount = model.getIndexCount();
+	geometry.geometry.triangles.indexData = mesh.getIndexBuffer();
+	geometry.geometry.triangles.indexCount = mesh.getIndexCount();
 	geometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	geometry.geometry.triangles.indexOffset = 0;
 	geometry.geometry.triangles.transformData = nullptr;
@@ -277,11 +277,11 @@ bool RaytracingAccelerationStructureBuilder::createTopLevelAccelerationStructure
 	return true;
 }
 
-AccelerationStructures RaytracingAccelerationStructureBuilder::build(Model& model) {
+AccelerationStructures RaytracingAccelerationStructureBuilder::build(Mesh& mesh) {
 	Queue* pQueue = m_device->getQueue(QueueType::eGraphics);
 	VkCommandBuffer cmd = pQueue->beginSingleTimeCommands();
 
-	createBottomLevelAccelerationStructure(cmd, model);
+	createBottomLevelAccelerationStructure(cmd, mesh);
 	
 	// Wait for the builder to complete by setting a barrier on the resulting buffer. This is
 		// particularly important as the construction of the top-level hierarchy may be called right
