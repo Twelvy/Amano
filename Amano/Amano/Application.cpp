@@ -164,7 +164,7 @@ bool Application::init() {
 		1,
 		colorFormat,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	m_GBuffer.colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -193,7 +193,7 @@ bool Application::init() {
 	// create the render pass
 	RenderPassBuilder renderPassBuilder;
 	renderPassBuilder
-		.addColorAttachment(colorFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) // attachment 0 for color
+		.addColorAttachment(colorFormat, VK_IMAGE_LAYOUT_GENERAL) // attachment 0 for color
 		.addColorAttachment(normalFormat, VK_IMAGE_LAYOUT_GENERAL) // attachment 1 for normal
 		.addColorAttachment(depthFormat2, VK_IMAGE_LAYOUT_GENERAL) // attachment 2 for depth
 		.addDepthAttachment(depthFormat) // attachment 3 for depth buffer
@@ -469,7 +469,7 @@ void Application::updateUniformBuffer() {
 
 	// update the light position
 	LightInformation lightUbo;
-	lightUbo.lightPosition = glm::vec3(0.2f * cos(time) + 0.2f, 0.2f * sinf(time), 0.8f);
+	lightUbo.lightPosition = glm::vec3(0.2f * cos(time) + 0.2f, 0.2f * sinf(time) + 0.2f, 0.8f);
 	m_lightUniformBuffer->update(lightUbo);
 }
 
@@ -595,12 +595,13 @@ void Application::setupRaytracingData() {
 	// create layout for the raytracing pipeline
 	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
 	descriptorSetLayoutbuilder
-		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV);
+		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, VK_SHADER_STAGE_RAYGEN_BIT_NV)  // acceleration structure
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // output image
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV)             // ray parameters
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // depth image
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // normal image
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // color image
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV);            // light information
 	m_raytracingDescriptorSetLayout = descriptorSetLayoutbuilder.build(*m_device);
 
 	// create raytracing pipeline layout
@@ -637,7 +638,8 @@ void Application::setupRaytracingData() {
 		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2)
 		.addStorageImage(m_GBuffer.depthImage->viewHandle(), 3)
 		.addStorageImage(m_GBuffer.normalImage->viewHandle(), 4)
-		.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 5);
+		.addStorageImage(m_GBuffer.colorImage->viewHandle(), 5)
+		.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 6);
 	m_raytracingDescriptorSet = descriptorSetBuilder.buildAndUpdate();
 }
 

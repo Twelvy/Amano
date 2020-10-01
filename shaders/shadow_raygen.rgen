@@ -14,7 +14,8 @@ layout(binding = 2, std140, set = 0) uniform rayParams
 };
 layout(binding = 3, r32f, set = 0) uniform image2D depthImg;
 layout(binding = 4, rgba8_snorm, set = 0) uniform image2D worldNormalImg;
-layout(binding = 5, std140, set = 0) uniform lightInformation
+layout(binding = 5, rgba8, set = 0) uniform image2D colorImg;
+layout(binding = 6, std140, set = 0) uniform lightInformation
 {
     vec3 lightPosition;
 };
@@ -36,6 +37,8 @@ void main() {
     const vec2 clipPos = (pixel / gl_LaunchSizeNV.xy) * 2.0 - 1.0;
     const float depth = imageLoad(depthImg, ivec2(gl_LaunchIDNV)).x;
 
+    vec4 shadowColor = vec4(1.0, 1.0, 1.0, 1.0);
+
     if (depth > 0.0 && depth < 1.0) {
         const vec3 worldNormal = imageLoad(worldNormalImg, ivec2(gl_LaunchIDNV)).xyz;
         vec4 target = viewInverse * projInverse * vec4(clipPos.xy, depth, 1.0);
@@ -54,13 +57,19 @@ void main() {
                     dir,
                     1000.0,
                     0);
-            imageStore(img, ivec2(gl_LaunchIDNV), payload);
+            shadowColor = payload;
+            //imageStore(img, ivec2(gl_LaunchIDNV), payload);
         }
         else {
-            imageStore(img, ivec2(gl_LaunchIDNV), vec4(0.0, 0.0, 0.0, 0.0));
+            shadowColor = vec4(0.0, 0.0, 0.0, 1.0);
+            //imageStore(img, ivec2(gl_LaunchIDNV), vec4(0.0, 0.0, 0.0, 0.0));
         }
     }
     else {
-        imageStore(img, ivec2(gl_LaunchIDNV), vec4(1.0, 1.0, 1.0, 1.0));
+        shadowColor = vec4(1.0, 1.0, 1.0, 1.0);
+        //imageStore(img, ivec2(gl_LaunchIDNV), vec4(1.0, 1.0, 1.0, 1.0));
     }
+
+    vec4 color = imageLoad(colorImg, ivec2(gl_LaunchIDNV));
+    imageStore(img, ivec2(gl_LaunchIDNV), shadowColor * color);
 }
