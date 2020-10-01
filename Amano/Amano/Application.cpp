@@ -342,6 +342,8 @@ void Application::onCursorCallback(double xpos, double ypos) {
 	// move!
 	if (isDragging && m_isDragging) {
 		glm::vec3 moveDir(newPos - m_mousePrevPos, 0.0f);
+		// scale the move direction so that it feels the same along x and y axis
+		// I chose to scale along x because the window is usually wider than higher
 		moveDir *= glm::vec3(static_cast<float>(m_height) / static_cast<float>(m_width), 1.0f, 1.0f);
 		m_cameraOrbitAnglesAndDistance -= moveDir;
 		// hardcoded limits
