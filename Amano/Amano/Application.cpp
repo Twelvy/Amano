@@ -38,6 +38,11 @@ static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 	app->onScrollCallback(xoffset, yoffset);
 }
 
+static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
+	app->onMouseButtonCallback(button, action);
+}
+
 }
 
 namespace Amano {
@@ -266,8 +271,8 @@ bool Application::init() {
 	// create graphics pipeline
 	PipelineBuilder pipelineBuilder(m_device);
 	pipelineBuilder
-		.addShader("../../compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)
-		.addShader("../../compiled_shaders/gbufferf.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
+		.addShader("compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)
+		.addShader("compiled_shaders/gbufferf.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
 		.setViewport(0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f)
 		.setScissor(0, 0, m_width, m_height)
 		.setRasterizer(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
@@ -279,11 +284,11 @@ bool Application::init() {
 
 	// load the model to display
 	m_mesh = new Mesh(m_device);
-	m_mesh->create("../../assets/models/viking_room.obj");
+	m_mesh->create("assets/models/viking_room.obj");
 
 	// load the texture of the model
 	m_modelTexture = new Image(m_device);
-	m_modelTexture->create("../../assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
+	m_modelTexture->create("assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
 	m_modelTexture->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// create a sampler for the texture
@@ -363,6 +368,11 @@ void Application::onCursorCallback(double xpos, double ypos) {
 	m_isDragging = isDragging;
 	if (m_isDragging)
 		m_mousePrevPos = newPos;
+}
+
+void Application::onMouseButtonCallback(int button, int action) {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+		m_isDragging = false;
 }
 
 void Application::onScrollCallback(double xscroll, double yscroll) {
@@ -652,9 +662,9 @@ void Application::setupRaytracingData() {
 	// load the shaders and create the pipeline
 	RaytracingPipelineBuilder raytracingPipelineBuilder(m_device);
 	raytracingPipelineBuilder
-		.addShader("../../compiled_shaders/shadow_raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addShader("../../compiled_shaders/shadow_miss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
-		.addShader("../../compiled_shaders/shadow_closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+		.addShader("compiled_shaders/shadow_raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addShader("compiled_shaders/shadow_miss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
+		.addShader("compiled_shaders/shadow_closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
 	m_raytracingPipeline = raytracingPipelineBuilder.build(m_raytracingPipelineLayout, 1);
 
 	// create the shader binding table associated to this pipeline

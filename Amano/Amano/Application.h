@@ -47,6 +47,10 @@ public:
 	// There is no need to call it manually
 	void onCursorCallback(double xpos, double ypos);
 
+	// Receives the mouse buttons
+	// There is no need to call it manually
+	void onMouseButtonCallback(int button, int action);
+
 	// Receives the scroll input
 	// There is no need to call it manually
 	void onScrollCallback(double xscroll, double yscroll);
