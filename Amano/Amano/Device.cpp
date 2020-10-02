@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "Device.h"
 
 #include <cstdint>

@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "Image.h"
 #include "Queue.h"
 

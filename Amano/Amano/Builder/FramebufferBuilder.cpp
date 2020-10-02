@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "FramebufferBuilder.h"
 
 #include <iostream>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Config.h"
 #include "../Device.h"
 #include "PipelineBuilderBase.h"
 

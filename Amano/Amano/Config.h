@@ -1,5 +1,4 @@
-// Precompiled header
-// This comtains the setup for GLFW and glm
+// This contains the setup for GLFW and glm
 #pragma once
 
 #define GLFW_INCLUDE_VULKAN

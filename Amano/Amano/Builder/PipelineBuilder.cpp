@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "PipelineBuilder.h"
 
 #include <array>
