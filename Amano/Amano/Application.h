@@ -25,6 +25,8 @@ struct RayParams {
 
 struct LightInformation {
 	glm::vec3 lightPosition;
+	float prevFrameWeight;
+	glm::vec3 lightOffset;
 };
 
 class Application {
@@ -116,6 +118,7 @@ private:
 
 	// for raytracing
 	Image* m_raytracingImage;
+	Image* m_raytracingAccumulationBuffer;
 	UniformBuffer<RayParams>* m_raytracingUniformBuffer;
 	VkDescriptorSetLayout m_raytracingDescriptorSetLayout;
 	VkPipelineLayout m_raytracingPipelineLayout;
@@ -130,6 +133,9 @@ private:
 	glm::vec2 m_mousePrevPos;
 	glm::vec3 m_cameraOrbitAnglesAndDistance;
 	glm::vec3 m_cameraPosition;
+
+	// accumulation
+	float m_previousFrameWeight;
 };
 
 }

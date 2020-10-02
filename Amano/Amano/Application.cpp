@@ -12,7 +12,9 @@
 #include "Builder/TransitionImageBarrierBuilder.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
+#include <time.h>
 #include <vector>
 
 // temporary
@@ -88,6 +90,7 @@ Application::Application()
 	, m_mousePrevPos()
 	, m_cameraOrbitAnglesAndDistance(45.0f, 45.0f, 2.0f)
 	, m_cameraPosition()
+	, m_previousFrameWeight(0.0f)
 {
 	updateCameraPosition();
 }
@@ -102,6 +105,7 @@ Application::~Application() {
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_raytracingDescriptorSetLayout, nullptr);
 	delete m_raytracingUniformBuffer;
 	delete m_raytracingImage;
+	delete m_raytracingAccumulationBuffer;;
 
 	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
 	for (auto& cmd : m_blitCommandBuffers)
@@ -166,6 +170,7 @@ void Application::initWindow() {
 	// NOTE: the window cannot be resized for now
 	glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
 	glfwSetCursorPosCallback(m_window, cursorPosCallback);
+	glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
 	glfwSetScrollCallback(m_window, scrollCallback);
 }
 
@@ -174,6 +179,9 @@ bool Application::init() {
 
 	m_device = new Device();
 	if (!m_device->init(m_window)) return false;
+
+	// init random
+	srand(static_cast<unsigned int>(time(NULL)));
 
 	/////////////////////////////////////////////
 	// from here, this is a test application
@@ -388,6 +396,8 @@ void Application::updateCameraPosition() {
 	m_cameraPosition.z = m_cameraOrbitAnglesAndDistance.z * cosf(glm::radians(m_cameraOrbitAnglesAndDistance.y));
 	m_cameraPosition.x = m_cameraOrbitAnglesAndDistance.z * tmp * cosf(glm::radians(m_cameraOrbitAnglesAndDistance.x));
 	m_cameraPosition.y = m_cameraOrbitAnglesAndDistance.z * tmp * sinf(glm::radians(m_cameraOrbitAnglesAndDistance.x));
+
+	m_previousFrameWeight = 0.0f;
 }
 
 void Application::drawFrame() {
@@ -519,7 +529,23 @@ void Application::updateUniformBuffer() {
 
 	// update the light position
 	LightInformation lightUbo;
-	lightUbo.lightPosition = glm::vec3(0.2f * cos(time) + 0.2f, 0.2f * sinf(time) + 0.2f, 0.8f);
+	//lightUbo.lightPosition = glm::vec3(0.2f * cos(time) + 0.2f, 0.2f * sinf(time) + 0.2f, 0.8f);
+	lightUbo.lightPosition = glm::vec3(0.4f, 0.4f, 0.8f);
+
+	if (m_isDragging) {
+		m_previousFrameWeight = 0.0f;
+		lightUbo.lightOffset = glm::vec3(0.0f);
+	}
+	else {
+		float cLightRadius = 0.1f * static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		lightUbo.lightOffset.x = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		lightUbo.lightOffset.y = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		lightUbo.lightOffset.z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		lightUbo.lightOffset = cLightRadius * glm::normalize(lightUbo.lightOffset);
+	}
+
+	lightUbo.prevFrameWeight = m_previousFrameWeight;
+	m_previousFrameWeight += 1.0f;
 	m_lightUniformBuffer->update(lightUbo);
 }
 
@@ -639,6 +665,30 @@ void Application::setupRaytracingData() {
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	m_raytracingImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
+	m_raytracingAccumulationBuffer = new Image(m_device);
+	m_raytracingAccumulationBuffer->create(
+		m_width,
+		m_height,
+		1,
+		VK_FORMAT_R8_UNORM,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_STORAGE_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	m_raytracingAccumulationBuffer->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+
+	{
+		auto pQueue = m_device->getQueue(QueueType::eGraphics);
+		auto cmd = pQueue->beginSingleTimeCommands();
+		TransitionImageBarrierBuilder<1> transition;
+		transition
+			.setImage(0, m_raytracingAccumulationBuffer->handle())
+			.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL)
+			.setAccessMasks(0, 0, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT)
+			.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+			.execute(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+		pQueue->endSingleTimeCommands(cmd);
+	}
+
 	// uniform buffer
 	m_raytracingUniformBuffer = new UniformBuffer<RayParams>(m_device);
 	
@@ -646,6 +696,7 @@ void Application::setupRaytracingData() {
 	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
 	descriptorSetLayoutbuilder
 		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, VK_SHADER_STAGE_RAYGEN_BIT_NV)  // acceleration structure
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // accumulation buffer
 		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // output image
 		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV)             // ray parameters
 		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // depth image
@@ -685,12 +736,13 @@ void Application::setupRaytracingData() {
 	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_raytracingDescriptorSetLayout);
 	descriptorSetBuilder
 		.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
-		.addStorageImage(m_raytracingImage->viewHandle(), 1)
-		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2)
-		.addStorageImage(m_GBuffer.depthImage->viewHandle(), 3)
-		.addStorageImage(m_GBuffer.normalImage->viewHandle(), 4)
-		.addStorageImage(m_GBuffer.colorImage->viewHandle(), 5)
-		.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 6);
+		.addStorageImage(m_raytracingAccumulationBuffer->viewHandle(), 1)
+		.addStorageImage(m_raytracingImage->viewHandle(), 2)
+		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 3)
+		.addStorageImage(m_GBuffer.depthImage->viewHandle(), 4)
+		.addStorageImage(m_GBuffer.normalImage->viewHandle(), 5)
+		.addStorageImage(m_GBuffer.colorImage->viewHandle(), 6)
+		.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 7);
 	m_raytracingDescriptorSet = descriptorSetBuilder.buildAndUpdate();
 }
 

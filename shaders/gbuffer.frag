@@ -14,6 +14,8 @@ layout(binding = 1) uniform sampler2D texSampler;
 layout(binding = 2) uniform lightInformation
 {
     vec3 lightPosition;
+    float prevFrameWeight;
+    vec3 lightOffset;
 };
 
 void main() {
