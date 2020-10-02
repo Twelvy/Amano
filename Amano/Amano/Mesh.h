@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Config.h"
+#include "Vertex.h"
 
+#include <vulkan/vulkan.h>
 #include <string>
 #include <vector>
 

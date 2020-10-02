@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Config.h"
+#include "glfw.h"
 #include "Extensions.h"
 #include "Queue.h"
 

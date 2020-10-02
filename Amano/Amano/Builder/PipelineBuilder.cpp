@@ -1,4 +1,5 @@
 #include "PipelineBuilder.h"
+#include "../Vertex.h"
 
 #include <array>
 #include <fstream>

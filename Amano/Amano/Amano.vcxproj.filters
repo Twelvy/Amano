@@ -101,9 +101,6 @@
     <ClInclude Include="Device.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Config.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Builder\DescriptorSetLayoutBuilder.h">
       <Filter>Header Files\Builder</Filter>
     </ClInclude>
@@ -175,6 +172,15 @@
     </ClInclude>
     <ClInclude Include="..\..\External\imgui\examples\imgui_impl_vulkan.h">
       <Filter>External\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="glm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Vertex.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

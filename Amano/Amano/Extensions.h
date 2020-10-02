@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Config.h"
+#include <vulkan/vulkan.h>
 
 namespace Amano {
 

@@ -203,13 +203,15 @@
     <ClInclude Include="Builder\SamplerBuilder.h" />
     <ClInclude Include="Builder\ShaderBindingTableBuilder.h" />
     <ClInclude Include="Builder\TransitionImageBarrierBuilder.h" />
-    <ClInclude Include="Config.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="Extensions.h" />
+    <ClInclude Include="glfw.h" />
+    <ClInclude Include="glm.h" />
     <ClInclude Include="Image.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="UniformBuffer.h" />
+    <ClInclude Include="Vertex.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

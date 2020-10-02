@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Config.h"
+#include "glfw.h"
+#include "glm.h"
 #include "Device.h"
 #include "Image.h"
 #include "Mesh.h"
