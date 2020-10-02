@@ -84,15 +84,13 @@ void AccelerationStructures::clean(Device* device) {
 RaytracingAccelerationStructureBuilder::RaytracingAccelerationStructureBuilder(Device* device, VkPipeline pipeline)
 	: m_device{ device }
 	, m_pipeline{ pipeline }
+	, m_geometries()
 	, m_accelerationStructures{}
 {
 }
 
-bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStructure(VkCommandBuffer cmd, Mesh& mesh) {
-	// we should create one bottom acceleration structure per mesh
-
-	// geometries
-	VkGeometryNV geometry{};
+RaytracingAccelerationStructureBuilder& RaytracingAccelerationStructureBuilder::addGeometry(Mesh& mesh) {
+	auto& geometry = m_geometries.emplace_back();
 	geometry.sType = VK_STRUCTURE_TYPE_GEOMETRY_NV;
 	geometry.pNext = nullptr;
 	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_NV;
@@ -112,6 +110,11 @@ bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStruct
 	geometry.geometry.aabbs.sType = VK_STRUCTURE_TYPE_GEOMETRY_AABB_NV;
 	geometry.geometry.aabbs.pNext = nullptr;
 
+	return *this;
+}
+
+bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStructure(VkCommandBuffer cmd) {
+	
 	VkAccelerationStructureCreateInfoNV bottomAccelerationInfo{};
 	bottomAccelerationInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_NV;
 	bottomAccelerationInfo.pNext = nullptr;
@@ -120,9 +123,9 @@ bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStruct
 	bottomAccelerationInfo.info.pNext = nullptr;
 	bottomAccelerationInfo.info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV; // VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_NV
 	bottomAccelerationInfo.info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_NV;
-	bottomAccelerationInfo.info.geometryCount = 1;
+	bottomAccelerationInfo.info.geometryCount = static_cast<uint32_t>(m_geometries.size());
 	bottomAccelerationInfo.info.instanceCount = 0;
-	bottomAccelerationInfo.info.pGeometries = &geometry;
+	bottomAccelerationInfo.info.pGeometries = m_geometries.data();
 
 	if (m_device->getExtensions().vkCreateAccelerationStructureNV(m_device->handle(), &bottomAccelerationInfo, nullptr, &m_accelerationStructures.bottom.handle) != VK_SUCCESS) {
 		std::cerr << "failed to create bottom acceleration structure!" << std::endl;
@@ -164,8 +167,8 @@ bool RaytracingAccelerationStructureBuilder::createBottomLevelAccelerationStruct
 	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV; //VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_NV
 	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_NV;
 	buildInfo.instanceCount = 0;
-	buildInfo.geometryCount = 1;
-	buildInfo.pGeometries = &geometry;
+	buildInfo.geometryCount = static_cast<uint32_t>(m_geometries.size());
+	buildInfo.pGeometries = m_geometries.data();
 
 	m_device->getExtensions().vkCmdBuildAccelerationStructureNV(
 		cmd,
@@ -191,7 +194,7 @@ bool RaytracingAccelerationStructureBuilder::createTopLevelAccelerationStructure
 	topAccelerationInfo.info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV; // VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_NV
 	topAccelerationInfo.info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV;
 	topAccelerationInfo.info.geometryCount = 0;
-	topAccelerationInfo.info.instanceCount = 1;
+	topAccelerationInfo.info.instanceCount = static_cast<uint32_t>(m_geometries.size());
 	topAccelerationInfo.info.pGeometries = nullptr;
 
 	if (m_device->getExtensions().vkCreateAccelerationStructureNV(m_device->handle(), &topAccelerationInfo, nullptr, &m_accelerationStructures.top.handle) != VK_SUCCESS) {
@@ -205,15 +208,18 @@ bool RaytracingAccelerationStructureBuilder::createTopLevelAccelerationStructure
 		return false;
 	}
 
-	uint32_t instanceId = 0;
-	VkGeometryInstance geometryInstance = {};
-	glm::mat4 transform = glm::mat4(1); // no transformation
-	std::memcpy(geometryInstance.transform, &transform, sizeof(glm::mat4));
-	geometryInstance.instanceCustomIndex = instanceId;
-	geometryInstance.mask = 0xFF; // The visibility mask is always set of 0xFF, but if some instances would need to be ignored in some cases, this flag should be passed by the application.
-	geometryInstance.instanceOffset = 0; // Set the hit group index, that will be used to find the shader code to execute when hitting the geometry.
-	geometryInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV; // Disable culling - more fine control could be provided by the application
-	geometryInstance.accelerationStructureHandle = handle;
+	// TODO: only one instance of per geometry is supported for now. Change that afterwards
+	std::vector<VkGeometryInstance> geometryInstances(m_geometries.size());
+	for (uint32_t instanceId = 0; instanceId < m_geometries.size(); ++instanceId) {
+		auto& geometryInstance = geometryInstances[instanceId];
+		glm::mat4 transform = glm::mat4(1); // TODO: support transformation - should we transpose it?
+		std::memcpy(geometryInstance.transform, &transform, sizeof(transform));
+		geometryInstance.instanceCustomIndex = instanceId;
+		geometryInstance.mask = 0xFF; // The visibility mask is always set of 0xFF, but if some instances would need to be ignored in some cases, this flag should be passed by the application.
+		geometryInstance.instanceOffset = 0; // Set the hit group index, that will be used to find the shader code to execute when hitting the geometry.
+		geometryInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV; // Disable culling - more fine control could be provided by the application
+		geometryInstance.accelerationStructureHandle = handle;
+	}
 
 	auto requirements = getMemoryRequirements(m_device, m_accelerationStructures.top.handle);
 
@@ -238,7 +244,7 @@ bool RaytracingAccelerationStructureBuilder::createTopLevelAccelerationStructure
 
 	void* pInstances;
 	vkMapMemory(m_device->handle(), m_accelerationStructures.top.topInstanceMemory, 0, sizeof(VkGeometryInstance) * 1, 0, &pInstances);
-	memcpy(pInstances, &geometryInstance, sizeof(VkGeometryInstance));
+	memcpy(pInstances, geometryInstances.data(), sizeof(VkGeometryInstance) * geometryInstances.size());
 	vkUnmapMemory(m_device->handle(), m_accelerationStructures.top.topInstanceMemory);
 
 	VkBindAccelerationStructureMemoryInfoNV bindInfo = {};
@@ -277,11 +283,11 @@ bool RaytracingAccelerationStructureBuilder::createTopLevelAccelerationStructure
 	return true;
 }
 
-AccelerationStructures RaytracingAccelerationStructureBuilder::build(Mesh& mesh) {
+AccelerationStructures RaytracingAccelerationStructureBuilder::build() {
 	Queue* pQueue = m_device->getQueue(QueueType::eGraphics);
 	VkCommandBuffer cmd = pQueue->beginSingleTimeCommands();
 
-	createBottomLevelAccelerationStructure(cmd, mesh);
+	createBottomLevelAccelerationStructure(cmd);
 	
 	// Wait for the builder to complete by setting a barrier on the resulting buffer. This is
 		// particularly important as the construction of the top-level hierarchy may be called right

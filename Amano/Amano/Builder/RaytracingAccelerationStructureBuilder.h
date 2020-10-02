@@ -33,15 +33,20 @@ class RaytracingAccelerationStructureBuilder {
 public:
 	RaytracingAccelerationStructureBuilder(Device* device, VkPipeline pipeline);
 
-	AccelerationStructures build(Mesh& mesh);
+	// instancing isn't supported for now
+	// transformation isn't supported either
+	RaytracingAccelerationStructureBuilder& addGeometry(Mesh& mesh);
+
+	AccelerationStructures build();
 
 private:
-	bool createBottomLevelAccelerationStructure(VkCommandBuffer cmd, Mesh& mesh);
+	bool createBottomLevelAccelerationStructure(VkCommandBuffer cmd);
 	bool createTopLevelAccelerationStructure(VkCommandBuffer cmd);
 
 private:
 	Device* m_device;
 	VkPipeline m_pipeline;
+	std::vector<VkGeometryNV> m_geometries;
 	AccelerationStructures m_accelerationStructures;
 };
 

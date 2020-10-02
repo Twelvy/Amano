@@ -668,7 +668,8 @@ void Application::setupRaytracingData() {
 	// build the acceleration structure for 1 model
 	// we should extend it to more models
 	RaytracingAccelerationStructureBuilder accelerationStructureBuilder(m_device, m_raytracingPipeline);
-	m_accelerationStructures = accelerationStructureBuilder.build(*m_mesh);
+	accelerationStructureBuilder.addGeometry(*m_mesh);
+	m_accelerationStructures = accelerationStructureBuilder.build();
 
 	// update the descriptor set
 	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_raytracingDescriptorSetLayout);
