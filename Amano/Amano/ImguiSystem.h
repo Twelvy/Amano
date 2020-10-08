@@ -18,6 +18,7 @@ public:
 	bool init();
 
 	void updateMouse(GLFWwindow* window);
+	bool hasCapturedMouse();
 	void startFrame();
 	void endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t height);
 

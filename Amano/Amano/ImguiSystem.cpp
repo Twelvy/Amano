@@ -117,6 +117,10 @@ void ImguiSystem::updateMouse(GLFWwindow* window) {
     }
 }
 
+bool ImguiSystem::hasCapturedMouse() {
+    return ImGui::GetIO().WantCaptureMouse;
+}
+
 void ImguiSystem::startFrame() {
     ImGui_ImplVulkan_NewFrame();
     ImGui::NewFrame();

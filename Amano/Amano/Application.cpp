@@ -363,6 +363,9 @@ bool Application::init() {
 }
 
 void Application::onCursorCallback(double xpos, double ypos) {
+	if (m_guiSystem != nullptr && m_guiSystem->hasCapturedMouse())
+		return;
+
 	bool isDragging = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 	glm::vec2 newPos(static_cast<float>(xpos), static_cast<float>(ypos));
 
@@ -393,11 +396,15 @@ void Application::onCursorCallback(double xpos, double ypos) {
 }
 
 void Application::onMouseButtonCallback(int button, int action) {
+	if (m_guiSystem != nullptr && m_guiSystem->hasCapturedMouse())
+		return;
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
 		m_isDragging = false;
 }
 
 void Application::onScrollCallback(double xscroll, double yscroll) {
+	if (m_guiSystem != nullptr && m_guiSystem->hasCapturedMouse())
+		return;
 	m_cameraOrbitAnglesAndDistance.z -= static_cast<float>(yscroll) / 10.0f;
 	// hardcoded limits
 	if (m_cameraOrbitAnglesAndDistance.z < 0.01f)
