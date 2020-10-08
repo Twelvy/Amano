@@ -19,7 +19,8 @@ static void checkVkResult(VkResult err)
 namespace Amano {
 
 ImguiSystem::ImguiSystem(Device* device)
-	: m_device{ device }
+	: InputReader()
+    , m_device{ device }
 	, m_descriptorPool{ VK_NULL_HANDLE }
     , m_renderPass{ VK_NULL_HANDLE }
     , m_mouseJustPressed{}
@@ -88,7 +89,7 @@ bool ImguiSystem::initImgui() {
 }
 
 // from imgui samples
-void ImguiSystem::updateMouse(GLFWwindow* window) {
+bool ImguiSystem::updateMouse(GLFWwindow* window) {
     // Update buttons
     ImGuiIO& io = ImGui::GetIO();
     for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); i++)
@@ -115,9 +116,7 @@ void ImguiSystem::updateMouse(GLFWwindow* window) {
             io.MousePos = ImVec2((float)mouse_x, (float)mouse_y);
         }
     }
-}
 
-bool ImguiSystem::hasCapturedMouse() {
     return ImGui::GetIO().WantCaptureMouse;
 }
 

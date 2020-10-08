@@ -29,19 +29,9 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 	app->notifyFramebufferResized(width, height);
 }
 
-static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
-	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
-	app->onCursorCallback(xpos, ypos);
-}
-
 static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
 	app->onScrollCallback(xoffset, yoffset);
-}
-
-static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
-	app->onMouseButtonCallback(button, action);
 }
 
 }
@@ -54,7 +44,9 @@ Application::Application()
 	, m_width{ 0 }
 	, m_height{ 0 }
 	, m_device{ nullptr }
+	, m_inputSystem{ nullptr }
 	, m_guiSystem{ nullptr }
+	, m_debugOrbitCamera{ nullptr }
 	, m_finalFramebuffers()
 	// necessary information to display the model
 	, m_depthImage{ nullptr }
@@ -87,12 +79,7 @@ Application::Application()
 	, m_accelerationStructures{}
 	, m_shaderBindingTables{}
 	, m_raytracingCommandBuffer{ VK_NULL_HANDLE }
-	, m_isDragging{ false }
-	, m_mousePrevPos()
-	, m_cameraOrbitAnglesAndDistance(45.0f, 45.0f, 2.0f)
-	, m_cameraPosition()
 {
-	updateCameraPosition();
 }
 
 Application::~Application() {
@@ -137,6 +124,8 @@ Application::~Application() {
 	for (auto finalFb : m_finalFramebuffers)
 		vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
 
+	delete m_inputSystem;
+	delete m_debugOrbitCamera;
 	delete m_guiSystem;
 
 	delete m_device;
@@ -149,8 +138,8 @@ Application::~Application() {
 void Application::run() {
 	while (!glfwWindowShouldClose(m_window)) {
 		glfwPollEvents();
-		if (m_guiSystem != nullptr)
-			m_guiSystem->updateMouse(m_window);
+		if (m_inputSystem != nullptr)
+			m_inputSystem->update(m_window);
 		drawFrame();
 	}
 
@@ -175,7 +164,6 @@ void Application::initWindow() {
 	glfwSetWindowUserPointer(m_window, this);
 	// NOTE: the window cannot be resized for now
 	glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
-	glfwSetCursorPosCallback(m_window, cursorPosCallback);
 	glfwSetScrollCallback(m_window, scrollCallback);
 }
 
@@ -196,6 +184,12 @@ bool Application::init() {
 			.addAttachment(swapchainImageView);
 		m_finalFramebuffers.push_back(finalFramebufferBuilder.build(*m_device, m_guiSystem->renderPass(), m_width, m_height));
 	}
+
+	m_debugOrbitCamera = new DebugOrbitCamera();
+
+	m_inputSystem = new InputSystem();
+	m_inputSystem->registerReader(m_guiSystem);
+	m_inputSystem->registerReader(m_debugOrbitCamera);
 
 	/////////////////////////////////////////////
 	// from here, this is a test application
@@ -362,61 +356,9 @@ bool Application::init() {
 	return true;
 }
 
-void Application::onCursorCallback(double xpos, double ypos) {
-	if (m_guiSystem != nullptr && m_guiSystem->hasCapturedMouse())
-		return;
-
-	bool isDragging = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-	glm::vec2 newPos(static_cast<float>(xpos), static_cast<float>(ypos));
-
-	// move!
-	if (isDragging && m_isDragging) {
-		glm::vec3 moveDir(newPos - m_mousePrevPos, 0.0f);
-		// scale the move direction so that it feels the same along x and y axis
-		// I chose to scale along x because the window is usually wider than higher
-		moveDir *= glm::vec3(static_cast<float>(m_height) / static_cast<float>(m_width), 1.0f, 1.0f);
-		m_cameraOrbitAnglesAndDistance -= moveDir;
-		// hardcoded limits
-		while (m_cameraOrbitAnglesAndDistance.x > 360.0f)
-			m_cameraOrbitAnglesAndDistance.x -= 360.0f;
-		while (m_cameraOrbitAnglesAndDistance.x < 0.0f)
-			m_cameraOrbitAnglesAndDistance.x += 360.0f;
-		while (m_cameraOrbitAnglesAndDistance.y > 180.0f)
-			m_cameraOrbitAnglesAndDistance.y -= 180.0f;
-		while (m_cameraOrbitAnglesAndDistance.y < 0.0f)
-			m_cameraOrbitAnglesAndDistance.y += 180.0f;
-
-		updateCameraPosition();
-	}
-
-	// set status and save position if necessary
-	m_isDragging = isDragging;
-	if (m_isDragging)
-		m_mousePrevPos = newPos;
-}
-
-void Application::onMouseButtonCallback(int button, int action) {
-	if (m_guiSystem != nullptr && m_guiSystem->hasCapturedMouse())
-		return;
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
-		m_isDragging = false;
-}
-
 void Application::onScrollCallback(double xscroll, double yscroll) {
-	if (m_guiSystem != nullptr && m_guiSystem->hasCapturedMouse())
-		return;
-	m_cameraOrbitAnglesAndDistance.z -= static_cast<float>(yscroll) / 10.0f;
-	// hardcoded limits
-	if (m_cameraOrbitAnglesAndDistance.z < 0.01f)
-		m_cameraOrbitAnglesAndDistance.z = 0.01f;
-	updateCameraPosition();
-}
-
-void Application::updateCameraPosition() {
-	float tmp = sinf(glm::radians(m_cameraOrbitAnglesAndDistance.y));
-	m_cameraPosition.z = m_cameraOrbitAnglesAndDistance.z * cosf(glm::radians(m_cameraOrbitAnglesAndDistance.y));
-	m_cameraPosition.x = m_cameraOrbitAnglesAndDistance.z * tmp * cosf(glm::radians(m_cameraOrbitAnglesAndDistance.x));
-	m_cameraPosition.y = m_cameraOrbitAnglesAndDistance.z * tmp * sinf(glm::radians(m_cameraOrbitAnglesAndDistance.x));
+	if (m_inputSystem != nullptr)
+		m_inputSystem->updateScroll(xscroll, yscroll);
 }
 
 void Application::drawFrame() {
@@ -537,7 +479,7 @@ void Application::updateUniformBuffer() {
 
 	//float angleRadians = glm::radians(m_cameraAngle);
 	//glm::vec3 origin = glm::vec3(2.8f * cosf(angleRadians), 2.8f * sinf(angleRadians), 2.0f);
-	glm::vec3 origin = m_cameraPosition;
+	glm::vec3 origin = m_debugOrbitCamera->getCameraPosition();
 
 	// update the gbuffer shader uniform
 	PerFrameUniformBufferObject ubo{};

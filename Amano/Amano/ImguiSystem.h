@@ -2,12 +2,13 @@
 
 #include "glfw.h"
 #include "Device.h"
+#include "InputSystem.h"
 
 #include <imgui.h>
 
 namespace Amano {
 
-class ImguiSystem
+class ImguiSystem : public InputReader
 {
 public:
 	ImguiSystem(Device* device);
@@ -17,8 +18,8 @@ public:
 
 	bool init();
 
-	void updateMouse(GLFWwindow* window);
-	bool hasCapturedMouse();
+	bool updateMouse(GLFWwindow* window) final;
+	bool updateScroll(double, double) final { return false; }
 	void startFrame();
 	void endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t height);
 

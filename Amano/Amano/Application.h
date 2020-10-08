@@ -2,9 +2,11 @@
 
 #include "glfw.h"
 #include "glm.h"
+#include "DebugOrbitCamera.h"
 #include "Device.h"
 #include "Image.h"
 #include "ImguiSystem.h"
+#include "InputSystem.h"
 #include "Mesh.h"
 #include "UniformBuffer.h"
 #include "Builder/RaytracingAccelerationStructureBuilder.h"
@@ -46,14 +48,6 @@ public:
 	// There is no need to call it manually
 	void notifyFramebufferResized(int width, int height);
 
-	// Receives the mouse input
-	// There is no need to call it manually
-	void onCursorCallback(double xpos, double ypos);
-
-	// Receives the mouse buttons
-	// There is no need to call it manually
-	void onMouseButtonCallback(int button, int action);
-
 	// Receives the scroll input
 	// There is no need to call it manually
 	void onScrollCallback(double xscroll, double yscroll);
@@ -62,7 +56,6 @@ private:
 	void initWindow();
 
 	void drawFrame();
-	void updateCameraPosition();
 	void updateUniformBuffer();
 
 	// multiple methods to record the commands once
@@ -87,7 +80,9 @@ private:
 
 	Device* m_device;
 
+	InputSystem* m_inputSystem;
 	ImguiSystem* m_guiSystem;
+	DebugOrbitCamera* m_debugOrbitCamera;
 	std::vector<VkFramebuffer> m_finalFramebuffers;
 
 	// the information for the sample is here
@@ -130,12 +125,6 @@ private:
 	AccelerationStructures m_accelerationStructures;
 	ShaderBindingTables m_shaderBindingTables;
 	VkCommandBuffer m_raytracingCommandBuffer;
-	
-	// camera control
-	bool m_isDragging;
-	glm::vec2 m_mousePrevPos;
-	glm::vec3 m_cameraOrbitAnglesAndDistance;
-	glm::vec3 m_cameraPosition;
 };
 
 }

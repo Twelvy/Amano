@@ -175,10 +175,12 @@
     <ClCompile Include="Builder\RenderPassBuilder.cpp" />
     <ClCompile Include="Builder\SamplerBuilder.cpp" />
     <ClCompile Include="Builder\ShaderBindingTableBuilder.cpp" />
+    <ClCompile Include="DebugOrbitCamera.cpp" />
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Extensions.cpp" />
     <ClCompile Include="Image.cpp" />
     <ClCompile Include="ImguiSystem.cpp" />
+    <ClCompile Include="InputSystem.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="Queue.cpp" />
@@ -204,12 +206,14 @@
     <ClInclude Include="Builder\SamplerBuilder.h" />
     <ClInclude Include="Builder\ShaderBindingTableBuilder.h" />
     <ClInclude Include="Builder\TransitionImageBarrierBuilder.h" />
+    <ClInclude Include="DebugOrbitCamera.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="Extensions.h" />
     <ClInclude Include="glfw.h" />
     <ClInclude Include="glm.h" />
     <ClInclude Include="Image.h" />
     <ClInclude Include="ImguiSystem.h" />
+    <ClInclude Include="InputSystem.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="UniformBuffer.h" />
