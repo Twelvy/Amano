@@ -53,7 +53,7 @@ bool ImguiSystem::initImgui() {
     ImGui::StyleColorsDark();
 
     // setup renderer bindings
-    // TODO: pass  this structure to Device to let it initialize
+    // TODO: pass this structure to Device to let it initialize
     auto pQueue = m_device->getQueue(QueueType::eGraphics);
 	ImGui_ImplVulkan_InitInfo initInfo;
     initInfo.Instance = m_device->instance();

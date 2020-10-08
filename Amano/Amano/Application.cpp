@@ -518,8 +518,9 @@ void Application::drawFrame() {
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 		m_guiSystem->startFrame();
 
-		bool show = true;
-		ImGui::ShowDemoWindow(&show);
+		ImGui::Begin("Test");
+		ImGui::Text("Welcome");
+		ImGui::End();
 
 		m_guiSystem->endFrame(m_finalFramebuffers[imageIndex], m_width, m_height);
 	}
