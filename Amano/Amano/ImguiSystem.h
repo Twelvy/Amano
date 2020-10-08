@@ -1,6 +1,9 @@
 #pragma once
 
+#include "glfw.h"
 #include "Device.h"
+
+#include <imgui.h>
 
 namespace Amano {
 
@@ -14,6 +17,7 @@ public:
 
 	bool init();
 
+	void updateMouse(GLFWwindow* window);
 	void startFrame();
 	void endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t height);
 
@@ -26,6 +30,7 @@ private:
 	Device* m_device;
 	VkDescriptorPool m_descriptorPool;
 	VkRenderPass m_renderPass;
+	bool m_mouseJustPressed[ImGuiMouseButton_COUNT];
 };
 
 }

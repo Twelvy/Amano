@@ -149,6 +149,8 @@ Application::~Application() {
 void Application::run() {
 	while (!glfwWindowShouldClose(m_window)) {
 		glfwPollEvents();
+		if (m_guiSystem != nullptr)
+			m_guiSystem->updateMouse(m_window);
 		drawFrame();
 	}
 

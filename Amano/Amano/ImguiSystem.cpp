@@ -22,7 +22,11 @@ ImguiSystem::ImguiSystem(Device* device)
 	: m_device{ device }
 	, m_descriptorPool{ VK_NULL_HANDLE }
     , m_renderPass{ VK_NULL_HANDLE }
+    , m_mouseJustPressed{}
 {
+    for (int i = 0; i < ImGuiMouseButton_COUNT; ++i) {
+        m_mouseJustPressed[i] = false;
+    }
 }
 
 ImguiSystem::~ImguiSystem() {
@@ -81,6 +85,36 @@ bool ImguiSystem::initImgui() {
     }
 
     return true;
+}
+
+// from imgui samples
+void ImguiSystem::updateMouse(GLFWwindow* window) {
+    // Update buttons
+    ImGuiIO& io = ImGui::GetIO();
+    for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); i++)
+    {
+        // If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
+        io.MouseDown[i] = m_mouseJustPressed[i] || glfwGetMouseButton(window, i) != 0;
+        m_mouseJustPressed[i] = false;
+    }
+
+    // Update mouse position
+    const ImVec2 mouse_pos_backup = io.MousePos;
+    io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
+    const bool focused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
+    if (focused)
+    {
+        if (io.WantSetMousePos)
+        {
+            glfwSetCursorPos(window, (double)mouse_pos_backup.x, (double)mouse_pos_backup.y);
+        }
+        else
+        {
+            double mouse_x, mouse_y;
+            glfwGetCursorPos(window, &mouse_x, &mouse_y);
+            io.MousePos = ImVec2((float)mouse_x, (float)mouse_y);
+        }
+    }
 }
 
 void ImguiSystem::startFrame() {
