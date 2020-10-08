@@ -10,6 +10,8 @@
 #include "Builder/SamplerBuilder.h"
 #include "Builder/TransitionImageBarrierBuilder.h"
 
+#include <imgui.h>
+
 #include <chrono>
 #include <iostream>
 #include <vector>
@@ -52,6 +54,8 @@ Application::Application()
 	, m_width{ 0 }
 	, m_height{ 0 }
 	, m_device{ nullptr }
+	, m_guiSystem{ nullptr }
+	, m_finalFramebuffers()
 	// necessary information to display the model
 	, m_depthImage{ nullptr }
 	, m_GBuffer{}
@@ -130,6 +134,11 @@ Application::~Application() {
 	delete m_GBuffer.colorImage;
 	delete m_depthImage;
 
+	for (auto finalFb : m_finalFramebuffers)
+		vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
+
+	delete m_guiSystem;
+
 	delete m_device;
 	m_device = nullptr;
 
@@ -173,6 +182,18 @@ bool Application::init() {
 
 	m_device = new Device();
 	if (!m_device->init(m_window)) return false;
+
+	m_guiSystem = new ImguiSystem(m_device);
+	if (!m_guiSystem->init()) return false;
+
+	m_finalFramebuffers.reserve(m_device->getSwapChainImageViews().size());
+	for (auto swapchainImageView : m_device->getSwapChainImageViews())
+	{
+		FramebufferBuilder finalFramebufferBuilder;
+		finalFramebufferBuilder
+			.addAttachment(swapchainImageView);
+		m_finalFramebuffers.push_back(finalFramebufferBuilder.build(*m_device, m_guiSystem->renderPass(), m_width, m_height));
+	}
 
 	/////////////////////////////////////////////
 	// from here, this is a test application
@@ -480,6 +501,19 @@ void Application::drawFrame() {
 
 	if (!pQueue->submit(&blitSubmitInfo, m_inFlightFence))
 		return;
+
+	// udpate UI
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		io.DisplaySize = ImVec2((float)m_width, (float)m_height);
+		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+		m_guiSystem->startFrame();
+
+		bool show = true;
+		ImGui::ShowDemoWindow(&show);
+
+		m_guiSystem->endFrame(m_finalFramebuffers[imageIndex], m_width, m_height);
+	}
 	
 	// wait for the rendering to finish
 	m_device->presentAndWait(m_blitFinishedSemaphore, imageIndex);
@@ -615,10 +649,10 @@ void Application::recordBlitCommands() {
 			1, &blit,
 			VK_FILTER_LINEAR);
 
-		// transition the swapchain again to present it
+		// transition the swapchain again for ui rendering
 		transition
-			.setLayouts(0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-			.setAccessMasks(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT)
+			.setLayouts(0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+			.setAccessMasks(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
 			.execute(blitCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
 		pQueue->endCommands(blitCommandBuffer);

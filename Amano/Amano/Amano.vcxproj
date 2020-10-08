@@ -161,6 +161,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\External\imgui\examples\imgui_impl_vulkan.cpp" />
     <ClCompile Include="..\..\External\imgui\imgui.cpp" />
+    <ClCompile Include="..\..\External\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\..\External\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\..\External\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Application.cpp" />
@@ -178,6 +179,7 @@
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Extensions.cpp" />
     <ClCompile Include="Image.cpp" />
+    <ClCompile Include="ImguiSystem.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="Queue.cpp" />
@@ -208,6 +210,7 @@
     <ClInclude Include="glfw.h" />
     <ClInclude Include="glm.h" />
     <ClInclude Include="Image.h" />
+    <ClInclude Include="ImguiSystem.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="UniformBuffer.h" />

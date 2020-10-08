@@ -281,6 +281,7 @@ Device::Device()
 	, m_device{ VK_NULL_HANDLE }
 	, m_swapChain{ VK_NULL_HANDLE }
 	, m_swapChainImages()
+	, m_swapChainImageViews()
 	, m_swapChainImageFormat{ VK_FORMAT_UNDEFINED }
 	, m_swapChainExtent{ 0, 0 }
 	, m_descriptorPool{ VK_NULL_HANDLE }
@@ -297,6 +298,9 @@ Device::~Device() {
 	
 	vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
 
+	for (auto imageView : m_swapChainImageViews)
+		vkDestroyImageView(m_device, imageView, nullptr);
+	
 	vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
 
 	vkDestroyDevice(m_device, nullptr);
@@ -458,6 +462,51 @@ void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
 	queue->endSingleTimeCommands(commandBuffer);
 }
 
+VkDescriptorPool Device::createDetachedDescriptorPool() {
+	std::array<VkDescriptorPoolSize, 11> poolSizes;
+	poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLER;
+	poolSizes[0].descriptorCount = 1000;
+	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	poolSizes[1].descriptorCount = 1000;
+	poolSizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	poolSizes[2].descriptorCount = 1000;
+	poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	poolSizes[3].descriptorCount = 1000;
+	poolSizes[4].type = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+	poolSizes[4].descriptorCount = 1000;
+	poolSizes[5].type = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+	poolSizes[5].descriptorCount = 1000;
+	poolSizes[6].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSizes[6].descriptorCount = 1000;
+	poolSizes[7].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	poolSizes[7].descriptorCount = 1000;
+	poolSizes[8].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	poolSizes[8].descriptorCount = 1000;
+	poolSizes[9].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+	poolSizes[9].descriptorCount = 1000;
+	poolSizes[10].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	poolSizes[10].descriptorCount = 1000;
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.pNext = nullptr;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+	poolInfo.pPoolSizes = poolSizes.data();
+	poolInfo.maxSets = static_cast<uint32_t>(m_swapChainImages.size());
+
+	VkDescriptorPool descriptorPool;
+	if (vkCreateDescriptorPool(m_device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+		std::cerr << "failed to create descriptor pool!" << std::endl;
+		return VK_NULL_HANDLE;
+	}
+
+	return descriptorPool;
+}
+
+void Device::releaseDescriptorPool(VkDescriptorPool descriptorPool) {
+	vkDestroyDescriptorPool(m_device, descriptorPool, nullptr);
+}
 
 bool Device::createInstance() {
 	if (cEnableValidationLayers && !checkValidationLayerSupport()) {
@@ -650,7 +699,7 @@ bool Device::createSwapChain(GLFWwindow* window) {
 	createInfo.imageExtent = extent;
 	createInfo.imageArrayLayers = 1;
 	//createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; //VK_IMAGE_USAGE_TRANSFER_DST_BIT for render to texture then copy
-	createInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT; //render to texture then copy
+	createInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; //render to texture then copy
 
 	QueueFamilyIndices indices = findQueueFamilies(m_physicalDevice, m_surface);
 	uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
@@ -674,6 +723,7 @@ bool Device::createSwapChain(GLFWwindow* window) {
 
 	if (vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS) {
 		std::cerr << "failed to create swap chain!" << std::endl;
+		return false;
 	}
 
 	vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, nullptr);
@@ -682,6 +732,29 @@ bool Device::createSwapChain(GLFWwindow* window) {
 	m_swapChainImageFormat = surfaceFormat.format;
 	m_swapChainExtent = extent;
 
+	// create the views
+	m_swapChainImageViews.reserve(m_swapChainImages.size());
+	for (auto image : m_swapChainImages) {
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = image;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = surfaceFormat.format;
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+
+		VkImageView imageView = VK_NULL_HANDLE;
+		if (vkCreateImageView(m_device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+			std::cerr << "failed to create texture image view!" << std::endl;
+			return false;
+		}
+
+		m_swapChainImageViews.push_back(imageView);
+	}
+
 	return true;
 }
 
@@ -689,15 +762,16 @@ bool Device::createDescriptorPool() {
 	// NOTE: this is hardcoded for now.
 	// creates a pool of descriptors for uniform buffers, textures etc.
 	// each pool has one descriptor per swapchain image
+	uint32_t swapChainImagesCount = static_cast<uint32_t>(m_swapChainImages.size());
 	std::array<VkDescriptorPoolSize, 4> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
+	poolSizes[0].descriptorCount = swapChainImagesCount;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
+	poolSizes[1].descriptorCount = swapChainImagesCount;
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	poolSizes[2].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
+	poolSizes[2].descriptorCount = swapChainImagesCount;
 	poolSizes[3].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
-	poolSizes[3].descriptorCount = static_cast<uint32_t>(m_swapChainImages.size());
+	poolSizes[3].descriptorCount = swapChainImagesCount;
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

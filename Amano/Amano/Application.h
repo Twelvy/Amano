@@ -4,6 +4,7 @@
 #include "glm.h"
 #include "Device.h"
 #include "Image.h"
+#include "ImguiSystem.h"
 #include "Mesh.h"
 #include "UniformBuffer.h"
 #include "Builder/RaytracingAccelerationStructureBuilder.h"
@@ -85,6 +86,9 @@ private:
 	uint32_t m_height;
 
 	Device* m_device;
+
+	ImguiSystem* m_guiSystem;
+	std::vector<VkFramebuffer> m_finalFramebuffers;
 
 	// the information for the sample is here
 	// All of this should be wrapped into proper classes for easy access
