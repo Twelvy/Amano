@@ -291,8 +291,8 @@ bool Application::init() {
 	pipelineBuilder
 		.addShader("compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)
 		.addShader("compiled_shaders/gbufferf.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
-		.setViewport(0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f)
-		.setScissor(0, 0, m_width, m_height)
+		//.setViewport(0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f)
+		//.setScissor(0, 0, m_width, m_height)
 		.setRasterizer(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 	m_pipeline = pipelineBuilder.build(m_pipelineLayout, m_renderPass, 0, 3, true);
 
@@ -549,6 +549,22 @@ void Application::recordRenderCommands() {
 	vkCmdBeginRenderPass(m_renderCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindPipeline(m_renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+	VkViewport viewport;
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = static_cast<float>(m_width);
+	viewport.height = static_cast<float>(m_height);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(m_renderCommandBuffer, 0, 1, &viewport);
+
+	VkRect2D scissor;
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent.width = m_width;
+	scissor.extent.height = m_height;
+	vkCmdSetScissor(m_renderCommandBuffer, 0, 1, &scissor);
 
 	VkBuffer vertexBuffers[] = { m_mesh->getVertexBuffer() };
 	VkDeviceSize offsets[] = { 0 };

@@ -133,6 +133,17 @@ VkPipeline PipelineBuilder::build(VkPipelineLayout pipelineLayout, VkRenderPass 
 		//depthStencil.back{}; // Optional
 	}
 
+	// viewport and scissors are dynamic stage to avoid recreating the pipeline if the size of the render target changes
+	std::array<VkDynamicState, 2> dynamicStates;
+	dynamicStates[0] = VK_DYNAMIC_STATE_VIEWPORT;
+	dynamicStates[1] = VK_DYNAMIC_STATE_SCISSOR;
+	VkPipelineDynamicStateCreateInfo dynamicStateInfo;
+	dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicStateInfo.pNext = 0;
+	dynamicStateInfo.flags = 0;
+	dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+	dynamicStateInfo.pDynamicStates = dynamicStates.data();
+
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.stageCount = static_cast<uint32_t>(m_shaderStages.size());
@@ -147,7 +158,7 @@ VkPipeline PipelineBuilder::build(VkPipelineLayout pipelineLayout, VkRenderPass 
 	else
 		pipelineInfo.pDepthStencilState = nullptr;
 	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = nullptr; // Optional
+	pipelineInfo.pDynamicState = &dynamicStateInfo; // Optional
 	pipelineInfo.layout = pipelineLayout;
 	pipelineInfo.renderPass = renderPass;
 	pipelineInfo.subpass = subpass;
