@@ -124,7 +124,7 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ExceptionHandling>Sync</ExceptionHandling>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>Config.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -146,7 +146,7 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ExceptionHandling>Sync</ExceptionHandling>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>Config.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -159,6 +159,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\External\imgui\examples\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="..\..\External\imgui\imgui.cpp" />
+    <ClCompile Include="..\..\External\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\..\External\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Builder\DescriptorSetBuilder.cpp" />
     <ClCompile Include="Builder\DescriptorSetLayoutBuilder.cpp" />
@@ -171,18 +175,24 @@
     <ClCompile Include="Builder\RenderPassBuilder.cpp" />
     <ClCompile Include="Builder\SamplerBuilder.cpp" />
     <ClCompile Include="Builder\ShaderBindingTableBuilder.cpp" />
-    <ClCompile Include="Config.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="DebugOrbitCamera.cpp" />
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Extensions.cpp" />
     <ClCompile Include="Image.cpp" />
+    <ClCompile Include="ImGuiSystem.cpp" />
+    <ClCompile Include="InputSystem.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="Queue.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\External\imgui\examples\imgui_impl_vulkan.h" />
+    <ClInclude Include="..\..\External\imgui\imconfig.h" />
+    <ClInclude Include="..\..\External\imgui\imgui.h" />
+    <ClInclude Include="..\..\External\imgui\imgui_internal.h" />
+    <ClInclude Include="..\..\External\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\..\External\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\..\External\imgui\imstb_truetype.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Builder\DescriptorSetBuilder.h" />
     <ClInclude Include="Builder\DescriptorSetLayoutBuilder.h" />
@@ -196,13 +206,18 @@
     <ClInclude Include="Builder\SamplerBuilder.h" />
     <ClInclude Include="Builder\ShaderBindingTableBuilder.h" />
     <ClInclude Include="Builder\TransitionImageBarrierBuilder.h" />
-    <ClInclude Include="Config.h" />
+    <ClInclude Include="DebugOrbitCamera.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="Extensions.h" />
+    <ClInclude Include="glfw.h" />
+    <ClInclude Include="glm.h" />
     <ClInclude Include="Image.h" />
+    <ClInclude Include="ImGuiSystem.h" />
+    <ClInclude Include="InputSystem.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="UniformBuffer.h" />
+    <ClInclude Include="Vertex.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "Image.h"
 #include "Queue.h"
 
@@ -148,7 +147,7 @@ bool Image::createView(VkImageAspectFlags aspectFlags) {
 		return false;
 	}
 
-	return true;;
+	return true;
 }
 
 void Image::transitionLayout(Queue& queue, VkImageLayout oldLayout, VkImageLayout newLayout) {

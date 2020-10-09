@@ -1,7 +1,12 @@
 #pragma once
 
+#include "glfw.h"
+#include "glm.h"
+#include "DebugOrbitCamera.h"
 #include "Device.h"
 #include "Image.h"
+#include "ImGuiSystem.h"
+#include "InputSystem.h"
 #include "Mesh.h"
 #include "UniformBuffer.h"
 #include "Builder/RaytracingAccelerationStructureBuilder.h"
@@ -43,14 +48,6 @@ public:
 	// There is no need to call it manually
 	void notifyFramebufferResized(int width, int height);
 
-	// Receives the mouse input
-	// There is no need to call it manually
-	void onCursorCallback(double xpos, double ypos);
-
-	// Receives the mouse buttons
-	// There is no need to call it manually
-	void onMouseButtonCallback(int button, int action);
-
 	// Receives the scroll input
 	// There is no need to call it manually
 	void onScrollCallback(double xscroll, double yscroll);
@@ -59,7 +56,7 @@ private:
 	void initWindow();
 
 	void drawFrame();
-	void updateCameraPosition();
+	void drawUI(uint32_t imageIndex);
 	void updateUniformBuffer();
 
 	// multiple methods to record the commands once
@@ -83,6 +80,11 @@ private:
 	uint32_t m_height;
 
 	Device* m_device;
+
+	InputSystem* m_inputSystem;
+	ImGuiSystem* m_guiSystem;
+	DebugOrbitCamera* m_debugOrbitCamera;
+	std::vector<VkFramebuffer> m_finalFramebuffers;
 
 	// the information for the sample is here
 	// All of this should be wrapped into proper classes for easy access
@@ -124,12 +126,9 @@ private:
 	AccelerationStructures m_accelerationStructures;
 	ShaderBindingTables m_shaderBindingTables;
 	VkCommandBuffer m_raytracingCommandBuffer;
-	
-	// camera control
-	bool m_isDragging;
-	glm::vec2 m_mousePrevPos;
-	glm::vec3 m_cameraOrbitAnglesAndDistance;
-	glm::vec3 m_cameraPosition;
+
+	// light information
+	glm::vec3 m_lightPosition;
 };
 
 }

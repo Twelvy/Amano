@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+
 namespace Amano {
 
 // This class fetches methods needed for raytracing

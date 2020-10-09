@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+#include <array>
+
 namespace Amano {
 
 // Helper class to transition an image layout

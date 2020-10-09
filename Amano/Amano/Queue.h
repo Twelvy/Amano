@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+
 namespace Amano {
 
 class Device;
@@ -12,6 +14,7 @@ public:
 	Queue(Device* device, uint32_t familyIndex);
 	~Queue();
 
+	uint32_t familyIndex() const { return m_familyIndex; }
 	VkQueue handle() { return m_queue; }
 
 	// Generates a command buffer that will be deleted once it has been submitted
@@ -41,6 +44,7 @@ public:
 
 private:
 	Device* m_device;
+	uint32_t m_familyIndex;
 	VkQueue m_queue;
 	VkCommandPool m_commandPool;
 };

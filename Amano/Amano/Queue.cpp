@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "Queue.h"
 #include "Device.h"
 
@@ -8,6 +7,7 @@ namespace Amano {
 
 Queue::Queue(Device* device, uint32_t familyIndex)
 	: m_device{ device }
+	, m_familyIndex{ familyIndex }
 	, m_queue{ VK_NULL_HANDLE }
 	, m_commandPool{ VK_NULL_HANDLE }
 {

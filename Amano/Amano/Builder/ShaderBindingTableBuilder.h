@@ -2,7 +2,6 @@
 
 #include "../Device.h"
 
-
 namespace Amano {
 
 struct ShaderGroupBindingTable {

@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "ShaderBindingTableBuilder.h"
 
 #include <array>

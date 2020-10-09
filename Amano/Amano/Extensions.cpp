@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "Extensions.h"
 
 namespace Amano {

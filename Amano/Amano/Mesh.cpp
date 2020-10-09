@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "Mesh.h"
 #include "Device.h"
 

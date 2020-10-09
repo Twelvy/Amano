@@ -1,5 +1,6 @@
 #pragma once
 
+#include "glfw.h"
 #include "Extensions.h"
 #include "Queue.h"
 
@@ -23,13 +24,17 @@ public:
 
 	bool init(GLFWwindow* window);
 
+	VkInstance instance() { return m_instance; }
+	VkPhysicalDevice physicalDevice() { return m_physicalDevice; }
 	VkDevice handle() { return m_device; };
 	const Extensions& getExtensions() const { return m_extensions; }
 	VkPhysicalDeviceRayTracingPropertiesNV getRaytracingPhysicalProperties();
 
 	Queue* getQueue(QueueType type) { return m_queues[static_cast<uint32_t>(type)]; }
 	VkDescriptorPool getDescriptorPool() { return m_descriptorPool; }
+	VkFormat getSwapChainFormat() const { return m_swapChainImageFormat; }
 	std::vector<VkImage>& getSwapChainImages() { return m_swapChainImages; }
+	std::vector<VkImageView>& getSwapChainImageViews() { return m_swapChainImageViews; }
 
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 	bool doesSuportBlitting(VkFormat format);
@@ -44,6 +49,10 @@ public:
 	void freeDeviceMemory(VkDeviceMemory deviceMemory);
 
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, QueueType queueType);
+
+	// those two methods are basically used for IMGUI only
+	VkDescriptorPool createDetachedDescriptorPool();
+	void releaseDescriptorPool(VkDescriptorPool descriptorPool);
 
 private:
 	bool createInstance();
@@ -65,6 +74,7 @@ private:
 	VkDevice m_device;
 	VkSwapchainKHR m_swapChain;
 	std::vector<VkImage> m_swapChainImages;
+	std::vector<VkImageView> m_swapChainImageViews;
 	VkFormat m_swapChainImageFormat;
 	VkExtent2D m_swapChainExtent;
 	VkDescriptorPool m_descriptorPool;

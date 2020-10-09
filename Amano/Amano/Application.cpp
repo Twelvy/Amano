@@ -1,4 +1,3 @@
-#include "Config.h"
 #include "Application.h"
 
 #include "Builder/DescriptorSetBuilder.h"
@@ -10,6 +9,8 @@
 #include "Builder/RenderPassBuilder.h"
 #include "Builder/SamplerBuilder.h"
 #include "Builder/TransitionImageBarrierBuilder.h"
+
+#include <imgui.h>
 
 #include <chrono>
 #include <iostream>
@@ -28,19 +29,9 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 	app->notifyFramebufferResized(width, height);
 }
 
-static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
-	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
-	app->onCursorCallback(xpos, ypos);
-}
-
 static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
 	app->onScrollCallback(xoffset, yoffset);
-}
-
-static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-	auto app = reinterpret_cast<Amano::Application*>(glfwGetWindowUserPointer(window));
-	app->onMouseButtonCallback(button, action);
 }
 
 }
@@ -53,6 +44,10 @@ Application::Application()
 	, m_width{ 0 }
 	, m_height{ 0 }
 	, m_device{ nullptr }
+	, m_inputSystem{ nullptr }
+	, m_guiSystem{ nullptr }
+	, m_debugOrbitCamera{ nullptr }
+	, m_finalFramebuffers()
 	// necessary information to display the model
 	, m_depthImage{ nullptr }
 	, m_GBuffer{}
@@ -84,12 +79,9 @@ Application::Application()
 	, m_accelerationStructures{}
 	, m_shaderBindingTables{}
 	, m_raytracingCommandBuffer{ VK_NULL_HANDLE }
-	, m_isDragging{ false }
-	, m_mousePrevPos()
-	, m_cameraOrbitAnglesAndDistance(45.0f, 45.0f, 2.0f)
-	, m_cameraPosition()
+	// light information
+	, m_lightPosition(1.0f, 1.0f, 1.0f)
 {
-	updateCameraPosition();
 }
 
 Application::~Application() {
@@ -131,6 +123,13 @@ Application::~Application() {
 	delete m_GBuffer.colorImage;
 	delete m_depthImage;
 
+	for (auto finalFb : m_finalFramebuffers)
+		vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
+
+	delete m_inputSystem;
+	delete m_debugOrbitCamera;
+	delete m_guiSystem;
+
 	delete m_device;
 	m_device = nullptr;
 
@@ -141,6 +140,8 @@ Application::~Application() {
 void Application::run() {
 	while (!glfwWindowShouldClose(m_window)) {
 		glfwPollEvents();
+		if (m_inputSystem != nullptr)
+			m_inputSystem->update(m_window);
 		drawFrame();
 	}
 
@@ -165,7 +166,6 @@ void Application::initWindow() {
 	glfwSetWindowUserPointer(m_window, this);
 	// NOTE: the window cannot be resized for now
 	glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
-	glfwSetCursorPosCallback(m_window, cursorPosCallback);
 	glfwSetScrollCallback(m_window, scrollCallback);
 }
 
@@ -174,6 +174,24 @@ bool Application::init() {
 
 	m_device = new Device();
 	if (!m_device->init(m_window)) return false;
+
+	m_guiSystem = new ImGuiSystem(m_device);
+	if (!m_guiSystem->init()) return false;
+
+	m_finalFramebuffers.reserve(m_device->getSwapChainImageViews().size());
+	for (auto swapchainImageView : m_device->getSwapChainImageViews())
+	{
+		FramebufferBuilder finalFramebufferBuilder;
+		finalFramebufferBuilder
+			.addAttachment(swapchainImageView);
+		m_finalFramebuffers.push_back(finalFramebufferBuilder.build(*m_device, m_guiSystem->renderPass(), m_width, m_height));
+	}
+
+	m_debugOrbitCamera = new DebugOrbitCamera();
+
+	m_inputSystem = new InputSystem();
+	m_inputSystem->registerReader(m_guiSystem);
+	m_inputSystem->registerReader(m_debugOrbitCamera);
 
 	/////////////////////////////////////////////
 	// from here, this is a test application
@@ -340,54 +358,9 @@ bool Application::init() {
 	return true;
 }
 
-void Application::onCursorCallback(double xpos, double ypos) {
-	bool isDragging = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-	glm::vec2 newPos(static_cast<float>(xpos), static_cast<float>(ypos));
-
-	// move!
-	if (isDragging && m_isDragging) {
-		glm::vec3 moveDir(newPos - m_mousePrevPos, 0.0f);
-		// scale the move direction so that it feels the same along x and y axis
-		// I chose to scale along x because the window is usually wider than higher
-		moveDir *= glm::vec3(static_cast<float>(m_height) / static_cast<float>(m_width), 1.0f, 1.0f);
-		m_cameraOrbitAnglesAndDistance -= moveDir;
-		// hardcoded limits
-		while (m_cameraOrbitAnglesAndDistance.x > 360.0f)
-			m_cameraOrbitAnglesAndDistance.x -= 360.0f;
-		while (m_cameraOrbitAnglesAndDistance.x < 0.0f)
-			m_cameraOrbitAnglesAndDistance.x += 360.0f;
-		while (m_cameraOrbitAnglesAndDistance.y > 180.0f)
-			m_cameraOrbitAnglesAndDistance.y -= 180.0f;
-		while (m_cameraOrbitAnglesAndDistance.y < 0.0f)
-			m_cameraOrbitAnglesAndDistance.y += 180.0f;
-
-		updateCameraPosition();
-	}
-
-	// set status and save position if necessary
-	m_isDragging = isDragging;
-	if (m_isDragging)
-		m_mousePrevPos = newPos;
-}
-
-void Application::onMouseButtonCallback(int button, int action) {
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
-		m_isDragging = false;
-}
-
 void Application::onScrollCallback(double xscroll, double yscroll) {
-	m_cameraOrbitAnglesAndDistance.z -= static_cast<float>(yscroll) / 10.0f;
-	// hardcoded limits
-	if (m_cameraOrbitAnglesAndDistance.z < 0.01f)
-		m_cameraOrbitAnglesAndDistance.z = 0.01f;
-	updateCameraPosition();
-}
-
-void Application::updateCameraPosition() {
-	float tmp = sinf(glm::radians(m_cameraOrbitAnglesAndDistance.y));
-	m_cameraPosition.z = m_cameraOrbitAnglesAndDistance.z * cosf(glm::radians(m_cameraOrbitAnglesAndDistance.y));
-	m_cameraPosition.x = m_cameraOrbitAnglesAndDistance.z * tmp * cosf(glm::radians(m_cameraOrbitAnglesAndDistance.x));
-	m_cameraPosition.y = m_cameraOrbitAnglesAndDistance.z * tmp * sinf(glm::radians(m_cameraOrbitAnglesAndDistance.x));
+	if (m_inputSystem != nullptr)
+		m_inputSystem->updateScroll(xscroll, yscroll);
 }
 
 void Application::drawFrame() {
@@ -481,9 +454,25 @@ void Application::drawFrame() {
 
 	if (!pQueue->submit(&blitSubmitInfo, m_inFlightFence))
 		return;
+
+	// udpate UI
+	drawUI(imageIndex);
 	
 	// wait for the rendering to finish
 	m_device->presentAndWait(m_blitFinishedSemaphore, imageIndex);
+}
+
+void Application::drawUI(uint32_t imageIndex) {
+	ImGuiIO& io = ImGui::GetIO();
+	io.DisplaySize = ImVec2((float)m_width, (float)m_height);
+	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+	m_guiSystem->startFrame();
+
+	ImGui::Begin("Light information");
+	ImGui::DragFloat3("position", &m_lightPosition[0], 0.01f, 1.0f, 1.0f);
+	ImGui::End();
+
+	m_guiSystem->endFrame(m_finalFramebuffers[imageIndex], m_width, m_height);
 }
 
 void Application::updateUniformBuffer() {
@@ -494,7 +483,7 @@ void Application::updateUniformBuffer() {
 
 	//float angleRadians = glm::radians(m_cameraAngle);
 	//glm::vec3 origin = glm::vec3(2.8f * cosf(angleRadians), 2.8f * sinf(angleRadians), 2.0f);
-	glm::vec3 origin = m_cameraPosition;
+	glm::vec3 origin = m_debugOrbitCamera->getCameraPosition();
 
 	// update the gbuffer shader uniform
 	PerFrameUniformBufferObject ubo{};
@@ -519,7 +508,7 @@ void Application::updateUniformBuffer() {
 
 	// update the light position
 	LightInformation lightUbo;
-	lightUbo.lightPosition = glm::vec3(0.2f * cos(time) + 0.2f, 0.2f * sinf(time) + 0.2f, 0.8f);
+	lightUbo.lightPosition = m_lightPosition;
 	m_lightUniformBuffer->update(lightUbo);
 }
 
@@ -616,10 +605,10 @@ void Application::recordBlitCommands() {
 			1, &blit,
 			VK_FILTER_LINEAR);
 
-		// transition the swapchain again to present it
+		// transition the swapchain again for ui rendering
 		transition
-			.setLayouts(0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-			.setAccessMasks(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT)
+			.setLayouts(0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+			.setAccessMasks(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
 			.execute(blitCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
 		pQueue->endCommands(blitCommandBuffer);
