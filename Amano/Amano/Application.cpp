@@ -156,6 +156,19 @@ void Application::initWindow() {
 	glfwSetScrollCallback(m_window, scrollCallback);
 }
 
+Application::Formats Application::getFormats() {
+	Formats formats;
+	formats.depthFormat = m_device->findSupportedFormat(
+		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+	);
+	formats.colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
+	formats.normalFormat = VK_FORMAT_R8G8B8A8_SNORM;
+	formats.depthFormat2 = VK_FORMAT_R32_SFLOAT;
+	return formats;
+}
+
 void Application::recreateSwapChain() {
 	if (m_device != nullptr) {
 		int width = 0, height = 0;
@@ -195,14 +208,7 @@ void Application::createSizeDependentObjects() {
 			m_finalFramebuffers.push_back(finalFramebufferBuilder.build(*m_device, m_guiSystem->renderPass(), m_width, m_height));
 		}
 
-		const VkFormat depthFormat = m_device->findSupportedFormat(
-			{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-		);
-		const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
-		const VkFormat normalFormat = VK_FORMAT_R8G8B8A8_SNORM;
-		const VkFormat depthFormat2 = VK_FORMAT_R32_SFLOAT;
+		Formats formats = getFormats();
 
 		// create the depth image/buffer
 		m_depthImage = new Image(m_device);
@@ -210,7 +216,7 @@ void Application::createSizeDependentObjects() {
 			m_width,
 			m_height,
 			1,
-			depthFormat,
+			formats.depthFormat,
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -223,7 +229,7 @@ void Application::createSizeDependentObjects() {
 			m_width,
 			m_height,
 			1,
-			colorFormat,
+			formats.colorFormat,
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -234,7 +240,7 @@ void Application::createSizeDependentObjects() {
 			m_width,
 			m_height,
 			1,
-			normalFormat,
+			formats.normalFormat,
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -245,7 +251,7 @@ void Application::createSizeDependentObjects() {
 			m_width,
 			m_height,
 			1,
-			depthFormat2,
+			formats.depthFormat2,
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -347,22 +353,15 @@ bool Application::init() {
 	// from here, this is a test application
 	/////////////////////////////////////////////
 
-	const VkFormat depthFormat = m_device->findSupportedFormat(
-		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-	);
-	const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
-	const VkFormat normalFormat = VK_FORMAT_R8G8B8A8_SNORM;
-	const VkFormat depthFormat2 = VK_FORMAT_R32_SFLOAT;
+	Formats formats = getFormats();
 
 	// create the render pass
 	RenderPassBuilder renderPassBuilder;
 	renderPassBuilder
-		.addColorAttachment(colorFormat, VK_IMAGE_LAYOUT_GENERAL) // attachment 0 for color
-		.addColorAttachment(normalFormat, VK_IMAGE_LAYOUT_GENERAL) // attachment 1 for normal
-		.addColorAttachment(depthFormat2, VK_IMAGE_LAYOUT_GENERAL) // attachment 2 for depth
-		.addDepthAttachment(depthFormat) // attachment 3 for depth buffer
+		.addColorAttachment(formats.colorFormat, VK_IMAGE_LAYOUT_GENERAL) // attachment 0 for color
+		.addColorAttachment(formats.normalFormat, VK_IMAGE_LAYOUT_GENERAL) // attachment 1 for normal
+		.addColorAttachment(formats.depthFormat2, VK_IMAGE_LAYOUT_GENERAL) // attachment 2 for depth
+		.addDepthAttachment(formats.depthFormat) // attachment 3 for depth buffer
 		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0, 1, 2 }, 3) // subpass 0
 		.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
 	m_renderPass = renderPassBuilder.build(*m_device);

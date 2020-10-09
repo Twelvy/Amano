@@ -55,6 +55,14 @@ public:
 private:
 	void initWindow();
 
+	struct Formats {
+		VkFormat depthFormat;
+		VkFormat colorFormat;
+		VkFormat normalFormat;
+		VkFormat depthFormat2;
+	};
+	Formats getFormats();
+
 	void recreateSwapChain();
 	void createSizeDependentObjects();
 	void cleanSizedependentObjects();
