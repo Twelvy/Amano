@@ -167,7 +167,7 @@
     <ClCompile Include="Builder\DescriptorSetBuilder.cpp" />
     <ClCompile Include="Builder\DescriptorSetLayoutBuilder.cpp" />
     <ClCompile Include="Builder\FramebufferBuilder.cpp" />
-    <ClCompile Include="Builder\PipelineBuilder.cpp" />
+    <ClCompile Include="Builder\GraphicsPipelineBuilder.cpp" />
     <ClCompile Include="Builder\PipelineBuilderBase.cpp" />
     <ClCompile Include="Builder\PipelineLayoutBuilder.cpp" />
     <ClCompile Include="Builder\RaytracingAccelerationStructureBuilder.cpp" />
@@ -197,7 +197,7 @@
     <ClInclude Include="Builder\DescriptorSetBuilder.h" />
     <ClInclude Include="Builder\DescriptorSetLayoutBuilder.h" />
     <ClInclude Include="Builder\FramebufferBuilder.h" />
-    <ClInclude Include="Builder\PipelineBuilder.h" />
+    <ClInclude Include="Builder\GraphicsPipelineBuilder.h" />
     <ClInclude Include="Builder\PipelineBuilderBase.h" />
     <ClInclude Include="Builder\PipelineLayoutBuilder.h" />
     <ClInclude Include="Builder\RaytracingAccelerationStructureBuilder.h" />

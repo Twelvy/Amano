@@ -3,7 +3,7 @@
 #include "Builder/DescriptorSetBuilder.h"
 #include "Builder/DescriptorSetLayoutBuilder.h"
 #include "Builder/FramebufferBuilder.h"
-#include "Builder/PipelineBuilder.h"
+#include "Builder/GraphicsPipelineBuilder.h"
 #include "Builder/PipelineLayoutBuilder.h"
 #include "Builder/RaytracingPipelineBuilder.h"
 #include "Builder/RenderPassBuilder.h"
@@ -380,7 +380,7 @@ bool Application::init() {
 	m_pipelineLayout = pipelineLayoutBuilder.build(*m_device);
 
 	// create graphics pipeline
-	PipelineBuilder pipelineBuilder(m_device);
+	GraphicsPipelineBuilder pipelineBuilder(m_device);
 	pipelineBuilder
 		.addShader("compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)
 		.addShader("compiled_shaders/gbufferf.spv", VK_SHADER_STAGE_FRAGMENT_BIT)

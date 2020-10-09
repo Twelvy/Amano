@@ -1,4 +1,4 @@
-#include "PipelineBuilder.h"
+#include "GraphicsPipelineBuilder.h"
 #include "../Vertex.h"
 
 #include <array>
@@ -7,7 +7,7 @@
 
 namespace Amano {
 
-PipelineBuilder::PipelineBuilder(Device* device)
+GraphicsPipelineBuilder::GraphicsPipelineBuilder(Device* device)
 	: PipelineBuilderBase(device)
 	, m_viewport {}
 	, m_scissor{}
@@ -27,15 +27,15 @@ PipelineBuilder::PipelineBuilder(Device* device)
 	m_rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
 }
 
-PipelineBuilder::~PipelineBuilder() {
+GraphicsPipelineBuilder::~GraphicsPipelineBuilder() {
 }
 
-PipelineBuilder& PipelineBuilder::addShader(const std::string& filename, VkShaderStageFlagBits stage) {
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::addShader(const std::string& filename, VkShaderStageFlagBits stage) {
 	addShaderBase(filename, stage);
 	return *this;
 }
 
-PipelineBuilder& PipelineBuilder::setViewport(float x, float y, float width, float height, float minDepth, float maxDepth) {
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::setViewport(float x, float y, float width, float height, float minDepth, float maxDepth) {
 	m_viewport.x = x;
 	m_viewport.y = y;
 	m_viewport.width = width;
@@ -46,7 +46,7 @@ PipelineBuilder& PipelineBuilder::setViewport(float x, float y, float width, flo
 	return *this;
 }
 
-PipelineBuilder& PipelineBuilder::setScissor(int32_t x, int32_t y, uint32_t width, uint32_t height) {
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::setScissor(int32_t x, int32_t y, uint32_t width, uint32_t height) {
 	m_scissor.offset.x = x;
 	m_scissor.offset.y = y;
 	m_scissor.extent.width = width;
@@ -55,14 +55,14 @@ PipelineBuilder& PipelineBuilder::setScissor(int32_t x, int32_t y, uint32_t widt
 	return *this;
 }
 
-PipelineBuilder& PipelineBuilder::setRasterizer(VkCullModeFlagBits cullMode, VkFrontFace frontface) {
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::setRasterizer(VkCullModeFlagBits cullMode, VkFrontFace frontface) {
 	m_rasterizer.cullMode = cullMode;
 	m_rasterizer.frontFace = frontface;
 
 	return *this;
 }
 
-VkPipeline PipelineBuilder::build(VkPipelineLayout pipelineLayout, VkRenderPass renderPass, uint32_t subpass, uint32_t renderTargetCount, bool hasDepth) {
+VkPipeline GraphicsPipelineBuilder::build(VkPipelineLayout pipelineLayout, VkRenderPass renderPass, uint32_t subpass, uint32_t renderTargetCount, bool hasDepth) {
 
 	auto bindingDescription = Vertex::getBindingDescription();
 	auto attributeDescriptions = Vertex::getAttributeDescriptions();
