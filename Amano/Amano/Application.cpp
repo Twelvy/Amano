@@ -79,6 +79,8 @@ Application::Application()
 	, m_accelerationStructures{}
 	, m_shaderBindingTables{}
 	, m_raytracingCommandBuffer{ VK_NULL_HANDLE }
+	// light information
+	, m_lightPosition(1.0f, 1.0f, 1.0f)
 {
 }
 
@@ -454,21 +456,23 @@ void Application::drawFrame() {
 		return;
 
 	// udpate UI
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		io.DisplaySize = ImVec2((float)m_width, (float)m_height);
-		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-		m_guiSystem->startFrame();
-
-		ImGui::Begin("Test");
-		ImGui::Text("Welcome");
-		ImGui::End();
-
-		m_guiSystem->endFrame(m_finalFramebuffers[imageIndex], m_width, m_height);
-	}
+	drawUI(imageIndex);
 	
 	// wait for the rendering to finish
 	m_device->presentAndWait(m_blitFinishedSemaphore, imageIndex);
+}
+
+void Application::drawUI(uint32_t imageIndex) {
+	ImGuiIO& io = ImGui::GetIO();
+	io.DisplaySize = ImVec2((float)m_width, (float)m_height);
+	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+	m_guiSystem->startFrame();
+
+	ImGui::Begin("Light information");
+	ImGui::DragFloat3("position", &m_lightPosition[0], 0.01f, 1.0f, 1.0f);
+	ImGui::End();
+
+	m_guiSystem->endFrame(m_finalFramebuffers[imageIndex], m_width, m_height);
 }
 
 void Application::updateUniformBuffer() {
@@ -504,7 +508,7 @@ void Application::updateUniformBuffer() {
 
 	// update the light position
 	LightInformation lightUbo;
-	lightUbo.lightPosition = glm::vec3(0.2f * cos(time) + 0.2f, 0.2f * sinf(time) + 0.2f, 0.8f);
+	lightUbo.lightPosition = m_lightPosition;
 	m_lightUniformBuffer->update(lightUbo);
 }
 

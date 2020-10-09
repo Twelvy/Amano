@@ -56,6 +56,7 @@ private:
 	void initWindow();
 
 	void drawFrame();
+	void drawUI(uint32_t imageIndex);
 	void updateUniformBuffer();
 
 	// multiple methods to record the commands once
@@ -125,6 +126,9 @@ private:
 	AccelerationStructures m_accelerationStructures;
 	ShaderBindingTables m_shaderBindingTables;
 	VkCommandBuffer m_raytracingCommandBuffer;
+
+	// light information
+	glm::vec3 m_lightPosition;
 };
 
 }

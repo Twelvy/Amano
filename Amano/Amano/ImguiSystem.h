@@ -18,9 +18,14 @@ public:
 
 	bool init();
 
+	// methods for InputReader
 	bool updateMouse(GLFWwindow* window) final;
 	bool updateScroll(double, double) final { return false; }
+
+	// Call this method to start recording the UI 
 	void startFrame();
+
+	// Ends the recording of the UI and submits the rendering command
 	void endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t height);
 
 private:
