@@ -179,7 +179,7 @@
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Extensions.cpp" />
     <ClCompile Include="Image.cpp" />
-    <ClCompile Include="ImguiSystem.cpp" />
+    <ClCompile Include="ImGuiSystem.cpp" />
     <ClCompile Include="InputSystem.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
@@ -212,7 +212,7 @@
     <ClInclude Include="glfw.h" />
     <ClInclude Include="glm.h" />
     <ClInclude Include="Image.h" />
-    <ClInclude Include="ImguiSystem.h" />
+    <ClInclude Include="ImGuiSystem.h" />
     <ClInclude Include="InputSystem.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Queue.h" />

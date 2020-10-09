@@ -175,7 +175,7 @@ bool Application::init() {
 	m_device = new Device();
 	if (!m_device->init(m_window)) return false;
 
-	m_guiSystem = new ImguiSystem(m_device);
+	m_guiSystem = new ImGuiSystem(m_device);
 	if (!m_guiSystem->init()) return false;
 
 	m_finalFramebuffers.reserve(m_device->getSwapChainImageViews().size());

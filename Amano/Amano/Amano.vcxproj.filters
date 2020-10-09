@@ -93,13 +93,13 @@
     <ClCompile Include="..\..\External\imgui\examples\imgui_impl_vulkan.cpp">
       <Filter>External\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="ImguiSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="InputSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DebugOrbitCamera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ImGuiSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -191,13 +191,13 @@
     <ClInclude Include="Vertex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ImguiSystem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="InputSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DebugOrbitCamera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGuiSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

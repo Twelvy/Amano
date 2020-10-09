@@ -5,7 +5,7 @@
 #include "DebugOrbitCamera.h"
 #include "Device.h"
 #include "Image.h"
-#include "ImguiSystem.h"
+#include "ImGuiSystem.h"
 #include "InputSystem.h"
 #include "Mesh.h"
 #include "UniformBuffer.h"
@@ -82,7 +82,7 @@ private:
 	Device* m_device;
 
 	InputSystem* m_inputSystem;
-	ImguiSystem* m_guiSystem;
+	ImGuiSystem* m_guiSystem;
 	DebugOrbitCamera* m_debugOrbitCamera;
 	std::vector<VkFramebuffer> m_finalFramebuffers;
 
