@@ -18,8 +18,8 @@
 
 // temporary
 // Default window width and height
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
+const uint32_t WIDTH = 1280;
+const uint32_t HEIGHT = 720;
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
 namespace {
@@ -86,18 +86,13 @@ Application::Application()
 
 Application::~Application() {
 	// TODO: wrap as many of those members into classes that know how to delete the Vulkan objects
+	cleanSizedependentObjects();
 	m_accelerationStructures.clean(m_device);
 	m_shaderBindingTables.clean(m_device);
-	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_raytracingDescriptorSet);
 	vkDestroyPipeline(m_device->handle(), m_raytracingPipeline, nullptr);
 	vkDestroyPipelineLayout(m_device->handle(), m_raytracingPipelineLayout, nullptr);
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_raytracingDescriptorSetLayout, nullptr);
 	delete m_raytracingUniformBuffer;
-	delete m_raytracingImage;
-
-	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
-	for (auto& cmd : m_blitCommandBuffers)
-		m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(cmd);
 
 	vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_raytracingFinishedSemaphore, nullptr);
@@ -117,14 +112,6 @@ Application::~Application() {
 	vkDestroyPipelineLayout(m_device->handle(), m_pipelineLayout, nullptr);
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_descriptorSetLayout, nullptr);
 	vkDestroyRenderPass(m_device->handle(), m_renderPass, nullptr);
-	vkDestroyFramebuffer(m_device->handle(), m_framebuffer, nullptr);
-	delete m_GBuffer.depthImage;
-	delete m_GBuffer.normalImage;
-	delete m_GBuffer.colorImage;
-	delete m_depthImage;
-
-	for (auto finalFb : m_finalFramebuffers)
-		vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
 
 	delete m_inputSystem;
 	delete m_debugOrbitCamera;
@@ -158,7 +145,7 @@ void Application::initWindow() {
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // do not allow resizing for now
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 	m_width = static_cast<uint32_t>(WIDTH);
 	m_height = static_cast<uint32_t>(HEIGHT);
@@ -169,6 +156,178 @@ void Application::initWindow() {
 	glfwSetScrollCallback(m_window, scrollCallback);
 }
 
+void Application::recreateSwapChain() {
+	if (m_device != nullptr) {
+		int width = 0, height = 0;
+		glfwGetFramebufferSize(m_window, &width, &height);
+		while (width == 0 || height == 0) {
+			glfwGetFramebufferSize(m_window, &width, &height);
+			glfwWaitEvents();
+		}
+		m_width = static_cast<uint32_t>(width);
+		m_height = static_cast<uint32_t>(height);
+
+		vkDeviceWaitIdle(m_device->handle());
+
+		cleanSizedependentObjects();
+		createSizeDependentObjects();
+	}
+}
+
+void Application::createSizeDependentObjects() {
+	if (m_debugOrbitCamera != nullptr)
+		m_debugOrbitCamera->setFrameSize(m_width, m_height);
+
+	if (m_device != nullptr) {
+		m_device->recreateSwapChain(m_window);
+
+		/////////////////////////////////////////////
+		// from here, this is a test application
+		/////////////////////////////////////////////
+
+		// create the final framebuffers
+		m_finalFramebuffers.reserve(m_device->getSwapChainImageViews().size());
+		for (auto swapchainImageView : m_device->getSwapChainImageViews())
+		{
+			FramebufferBuilder finalFramebufferBuilder;
+			finalFramebufferBuilder
+				.addAttachment(swapchainImageView);
+			m_finalFramebuffers.push_back(finalFramebufferBuilder.build(*m_device, m_guiSystem->renderPass(), m_width, m_height));
+		}
+
+		const VkFormat depthFormat = m_device->findSupportedFormat(
+			{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+		);
+		const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
+		const VkFormat normalFormat = VK_FORMAT_R8G8B8A8_SNORM;
+		const VkFormat depthFormat2 = VK_FORMAT_R32_SFLOAT;
+
+		// create the depth image/buffer
+		m_depthImage = new Image(m_device);
+		m_depthImage->create(
+			m_width,
+			m_height,
+			1,
+			depthFormat,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		m_depthImage->createView(VK_IMAGE_ASPECT_DEPTH_BIT);
+		m_depthImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+		// create the images for the GBuffer
+		m_GBuffer.colorImage = new Image(m_device);
+		m_GBuffer.colorImage->create(
+			m_width,
+			m_height,
+			1,
+			colorFormat,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		m_GBuffer.colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+
+		m_GBuffer.normalImage = new Image(m_device);
+		m_GBuffer.normalImage->create(
+			m_width,
+			m_height,
+			1,
+			normalFormat,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		m_GBuffer.normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+
+		m_GBuffer.depthImage = new Image(m_device);
+		m_GBuffer.depthImage->create(
+			m_width,
+			m_height,
+			1,
+			depthFormat2,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		m_GBuffer.depthImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+
+		// create the framebuffer
+		FramebufferBuilder framebufferBuilder;
+		framebufferBuilder
+			.addAttachment(m_GBuffer.colorImage->viewHandle())
+			.addAttachment(m_GBuffer.normalImage->viewHandle())
+			.addAttachment(m_GBuffer.depthImage->viewHandle())
+			.addAttachment(m_depthImage->viewHandle());
+		m_framebuffer = framebufferBuilder.build(*m_device, m_renderPass, m_width, m_height);
+
+		// update the descriptor set
+		DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_descriptorSetLayout);
+		descriptorSetBuilder
+			.addUniformBuffer(m_uniformBuffer->getBuffer(), m_uniformBuffer->getSize(), 0)
+			.addImage(m_sampler, m_modelTexture->viewHandle(), 1)
+			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 2);
+		m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
+
+		// create raytracing image
+		m_raytracingImage = new Image(m_device);
+		m_raytracingImage->create(
+			m_width,
+			m_height,
+			1,
+			VK_FORMAT_R8G8B8A8_UNORM,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		m_raytracingImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+
+		// update the descriptor set for raytracing
+		DescriptorSetBuilder raytracingDescriptorSetBuilder(m_device, 2, m_raytracingDescriptorSetLayout);
+		raytracingDescriptorSetBuilder
+			.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
+			.addStorageImage(m_raytracingImage->viewHandle(), 1)
+			.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2)
+			.addStorageImage(m_GBuffer.depthImage->viewHandle(), 3)
+			.addStorageImage(m_GBuffer.normalImage->viewHandle(), 4)
+			.addStorageImage(m_GBuffer.colorImage->viewHandle(), 5)
+			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 6);
+		m_raytracingDescriptorSet = raytracingDescriptorSetBuilder.buildAndUpdate();
+
+		// record the commands that will be executed, rendering and blitting
+		recordRenderCommands();
+		recordBlitCommands();
+		recordRaytracingCommands();
+	}
+}
+
+void Application::cleanSizedependentObjects() {
+	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_raytracingDescriptorSet);
+	m_raytracingDescriptorSet = VK_NULL_HANDLE;
+	delete m_raytracingImage;
+	m_raytracingImage = nullptr;
+
+	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
+	m_renderCommandBuffer = VK_NULL_HANDLE;
+	for (auto& cmd : m_blitCommandBuffers)
+		m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(cmd);
+	m_blitCommandBuffers.clear();
+
+	vkDestroyFramebuffer(m_device->handle(), m_framebuffer, nullptr);
+	m_framebuffer = VK_NULL_HANDLE;
+
+	delete m_GBuffer.depthImage;
+	m_GBuffer.depthImage = nullptr;
+	delete m_GBuffer.normalImage;
+	m_GBuffer.normalImage = nullptr;
+	delete m_GBuffer.colorImage;
+	m_GBuffer.colorImage = nullptr;
+	delete m_depthImage;
+	m_depthImage = nullptr;
+
+	for (auto finalFb : m_finalFramebuffers)
+		vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
+	m_finalFramebuffers.clear();
+}
+
 bool Application::init() {
 	initWindow();
 
@@ -177,15 +336,6 @@ bool Application::init() {
 
 	m_guiSystem = new ImGuiSystem(m_device);
 	if (!m_guiSystem->init()) return false;
-
-	m_finalFramebuffers.reserve(m_device->getSwapChainImageViews().size());
-	for (auto swapchainImageView : m_device->getSwapChainImageViews())
-	{
-		FramebufferBuilder finalFramebufferBuilder;
-		finalFramebufferBuilder
-			.addAttachment(swapchainImageView);
-		m_finalFramebuffers.push_back(finalFramebufferBuilder.build(*m_device, m_guiSystem->renderPass(), m_width, m_height));
-	}
 
 	m_debugOrbitCamera = new DebugOrbitCamera();
 
@@ -206,53 +356,6 @@ bool Application::init() {
 	const VkFormat normalFormat = VK_FORMAT_R8G8B8A8_SNORM;
 	const VkFormat depthFormat2 = VK_FORMAT_R32_SFLOAT;
 
-	// create the depth image/buffer
-	m_depthImage = new Image(m_device);
-	m_depthImage->create(
-		m_width,
-		m_height,
-		1,
-		depthFormat,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_depthImage->createView(VK_IMAGE_ASPECT_DEPTH_BIT);
-	m_depthImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-	// create the images for the GBuffer
-	m_GBuffer.colorImage = new Image(m_device);
-	m_GBuffer.colorImage->create(
-		m_width,
-		m_height,
-		1,
-		colorFormat,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_GBuffer.colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-
-	m_GBuffer.normalImage = new Image(m_device);
-	m_GBuffer.normalImage->create(
-		m_width,
-		m_height,
-		1,
-		normalFormat,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_GBuffer.normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-
-	m_GBuffer.depthImage = new Image(m_device);
-	m_GBuffer.depthImage->create(
-		m_width,
-		m_height,
-		1,
-		depthFormat2,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_GBuffer.depthImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-
 	// create the render pass
 	RenderPassBuilder renderPassBuilder;
 	renderPassBuilder
@@ -264,15 +367,6 @@ bool Application::init() {
 		.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
 	m_renderPass = renderPassBuilder.build(*m_device);
 	
-	// create the framebuffer
-	FramebufferBuilder framebufferBuilder;
-	framebufferBuilder
-		.addAttachment(m_GBuffer.colorImage->viewHandle())
-		.addAttachment(m_GBuffer.normalImage->viewHandle())
-		.addAttachment(m_GBuffer.depthImage->viewHandle())
-		.addAttachment(m_depthImage->viewHandle());
-	m_framebuffer = framebufferBuilder.build(*m_device, m_renderPass, m_width, m_height);
-
 	// create layout for the next pipeline
 	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
 	descriptorSetLayoutbuilder
@@ -314,16 +408,47 @@ bool Application::init() {
 	samplerBuilder.setMaxLoad((float)m_modelTexture->getMipLevels());
 	m_sampler = samplerBuilder.build(*m_device);
 
-	// update the descriptor set
-	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_descriptorSetLayout);
-	descriptorSetBuilder
-		.addUniformBuffer(m_uniformBuffer->getBuffer(), m_uniformBuffer->getSize(), 0)
-		.addImage(m_sampler, m_modelTexture->viewHandle(), 1)
-		.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 2);
-	m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
+	// uniform buffer
+	m_raytracingUniformBuffer = new UniformBuffer<RayParams>(m_device);
 
-	// for raytracing, we should specific objects
-	setupRaytracingData();
+	// create layout for the raytracing pipeline
+	DescriptorSetLayoutBuilder raytracingDescriptorSetLayoutbuilder;
+	raytracingDescriptorSetLayoutbuilder
+		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, VK_SHADER_STAGE_RAYGEN_BIT_NV)  // acceleration structure
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // output image
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV)             // ray parameters
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // depth image
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // normal image
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // color image
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV);            // light information
+	m_raytracingDescriptorSetLayout = raytracingDescriptorSetLayoutbuilder.build(*m_device);
+
+	// create raytracing pipeline layout
+	PipelineLayoutBuilder raytracingPipelineLayoutBuilder;
+	raytracingPipelineLayoutBuilder.addDescriptorSetLayout(m_raytracingDescriptorSetLayout);
+	m_raytracingPipelineLayout = raytracingPipelineLayoutBuilder.build(*m_device);
+
+	// load the shaders and create the pipeline
+	RaytracingPipelineBuilder raytracingPipelineBuilder(m_device);
+	raytracingPipelineBuilder
+		.addShader("compiled_shaders/shadow_raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addShader("compiled_shaders/shadow_miss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
+		.addShader("compiled_shaders/shadow_closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+	m_raytracingPipeline = raytracingPipelineBuilder.build(m_raytracingPipelineLayout, 1);
+
+	// create the shader binding table associated to this pipeline
+	ShaderBindingTableBuilder sbtBuilder(m_device, m_raytracingPipeline);
+	sbtBuilder
+		.addShader(ShaderBindingTableBuilder::Stage::eRayGen, 0)
+		.addShader(ShaderBindingTableBuilder::Stage::eMiss, 1)
+		.addShader(ShaderBindingTableBuilder::Stage::eClosestHit, 2);
+	m_shaderBindingTables = sbtBuilder.build();
+
+	// build the acceleration structure for 1 model
+	// we should extend it to more models
+	RaytracingAccelerationStructureBuilder accelerationStructureBuilder(m_device, m_raytracingPipeline);
+	accelerationStructureBuilder.addGeometry(*m_mesh);
+	m_accelerationStructures = accelerationStructureBuilder.build();
 
 	// create the sync objects
 	VkSemaphoreCreateInfo semaphoreInfo{};
@@ -350,11 +475,8 @@ bool Application::init() {
 		return false;
 	}
 
-	// record the commands that will be executed, rendering and blitting
-	recordRenderCommands();
-	recordBlitCommands();
-	recordRaytracingCommands();
-
+	createSizeDependentObjects();
+	
 	return true;
 }
 
@@ -372,12 +494,17 @@ void Application::drawFrame() {
 	vkResetFences(m_device->handle(), 1, &m_raytracingFence);
 	vkResetFences(m_device->handle(), 1, &m_inFlightFence);
 
+	if (m_framebufferResized) {
+		m_framebufferResized = false;
+		recreateSwapChain();
+	}
+
 	// get the next image in the swapchain
 	uint32_t imageIndex;
 	auto result = m_device->acquireNextImage(m_imageAvailableSemaphore, imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-		//recreateSwapChain();
+		recreateSwapChain();
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -459,7 +586,18 @@ void Application::drawFrame() {
 	drawUI(imageIndex);
 	
 	// wait for the rendering to finish
-	m_device->presentAndWait(m_blitFinishedSemaphore, imageIndex);
+	result = m_device->present(m_blitFinishedSemaphore, imageIndex);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_framebufferResized) {
+		m_framebufferResized = false;
+		recreateSwapChain();
+	}
+	else if (result != VK_SUCCESS) {
+		std::cerr << "failed to present swap chain image!" << std::endl;
+		return;
+	}
+
+	m_device->wait();
 }
 
 void Application::drawUI(uint32_t imageIndex) {
@@ -629,74 +767,6 @@ void Application::recordBlitCommands() {
 
 		pQueue->endCommands(blitCommandBuffer);
 	}
-}
-
-void Application::setupRaytracingData() {
-	// this is the buffer storing the result of the raytracing
-	m_raytracingImage = new Image(m_device);
-	m_raytracingImage->create(
-		m_width,
-		m_height,
-		1,
-		VK_FORMAT_R8G8B8A8_UNORM,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_raytracingImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-
-	// uniform buffer
-	m_raytracingUniformBuffer = new UniformBuffer<RayParams>(m_device);
-	
-	// create layout for the raytracing pipeline
-	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
-	descriptorSetLayoutbuilder
-		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, VK_SHADER_STAGE_RAYGEN_BIT_NV)  // acceleration structure
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // output image
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV)             // ray parameters
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // depth image
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // normal image
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // color image
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV);            // light information
-	m_raytracingDescriptorSetLayout = descriptorSetLayoutbuilder.build(*m_device);
-
-	// create raytracing pipeline layout
-	PipelineLayoutBuilder pipelineLayoutBuilder;
-	pipelineLayoutBuilder.addDescriptorSetLayout(m_raytracingDescriptorSetLayout);
-	m_raytracingPipelineLayout = pipelineLayoutBuilder.build(*m_device);
-
-	// load the shaders and create the pipeline
-	RaytracingPipelineBuilder raytracingPipelineBuilder(m_device);
-	raytracingPipelineBuilder
-		.addShader("compiled_shaders/shadow_raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addShader("compiled_shaders/shadow_miss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
-		.addShader("compiled_shaders/shadow_closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
-	m_raytracingPipeline = raytracingPipelineBuilder.build(m_raytracingPipelineLayout, 1);
-
-	// create the shader binding table associated to this pipeline
-	ShaderBindingTableBuilder sbtBuilder(m_device, m_raytracingPipeline);
-	sbtBuilder
-		.addShader(ShaderBindingTableBuilder::Stage::eRayGen, 0)
-		.addShader(ShaderBindingTableBuilder::Stage::eMiss, 1)
-		.addShader(ShaderBindingTableBuilder::Stage::eClosestHit, 2);
-	m_shaderBindingTables = sbtBuilder.build();
-
-	// build the acceleration structure for 1 model
-	// we should extend it to more models
-	RaytracingAccelerationStructureBuilder accelerationStructureBuilder(m_device, m_raytracingPipeline);
-	accelerationStructureBuilder.addGeometry(*m_mesh);
-	m_accelerationStructures = accelerationStructureBuilder.build();
-
-	// update the descriptor set
-	DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_raytracingDescriptorSetLayout);
-	descriptorSetBuilder
-		.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
-		.addStorageImage(m_raytracingImage->viewHandle(), 1)
-		.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2)
-		.addStorageImage(m_GBuffer.depthImage->viewHandle(), 3)
-		.addStorageImage(m_GBuffer.normalImage->viewHandle(), 4)
-		.addStorageImage(m_GBuffer.colorImage->viewHandle(), 5)
-		.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 6);
-	m_raytracingDescriptorSet = descriptorSetBuilder.buildAndUpdate();
 }
 
 void Application::recordRaytracingCommands() {

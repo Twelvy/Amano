@@ -30,6 +30,8 @@ public:
 	const Extensions& getExtensions() const { return m_extensions; }
 	VkPhysicalDeviceRayTracingPropertiesNV getRaytracingPhysicalProperties();
 
+	void recreateSwapChain(GLFWwindow* window);
+
 	Queue* getQueue(QueueType type) { return m_queues[static_cast<uint32_t>(type)]; }
 	VkDescriptorPool getDescriptorPool() { return m_descriptorPool; }
 	VkFormat getSwapChainFormat() const { return m_swapChainImageFormat; }
@@ -41,7 +43,8 @@ public:
 
 	void waitIdle();
 	VkResult acquireNextImage(VkSemaphore semaphore, uint32_t& imageIndex);
-	void presentAndWait(VkSemaphore waitSemaphore, uint32_t imageIndex);
+	VkResult present(VkSemaphore waitSemaphore, uint32_t imageIndex);
+	void wait();
 
 	bool createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void destroyBuffer(VkBuffer buffer);
@@ -63,6 +66,8 @@ private:
 	bool createQueues();
 	bool createSwapChain(GLFWwindow* window);
 	bool createDescriptorPool();
+
+	void destroySwapChain();
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 

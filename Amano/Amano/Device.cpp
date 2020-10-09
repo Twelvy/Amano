@@ -295,16 +295,9 @@ Device::Device()
 Device::~Device() {
 	for (int i = 0; i < static_cast<int>(QueueType::eCount); ++i)
 		delete m_queues[i];
-	
-	vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
 
-	for (auto imageView : m_swapChainImageViews)
-		vkDestroyImageView(m_device, imageView, nullptr);
-	
-	vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
-
+	destroySwapChain();
 	vkDestroyDevice(m_device, nullptr);
-
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 
 	if (cEnableValidationLayers) {
@@ -346,7 +339,7 @@ VkResult Device::acquireNextImage(VkSemaphore semaphore, uint32_t& imageIndex) {
 	return vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &imageIndex);
 }
 
-void Device::presentAndWait(VkSemaphore waitSemaphore, uint32_t imageIndex) {
+VkResult Device::present(VkSemaphore waitSemaphore, uint32_t imageIndex) {
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
@@ -361,17 +354,11 @@ void Device::presentAndWait(VkSemaphore waitSemaphore, uint32_t imageIndex) {
 	presentInfo.pResults = nullptr; // Optional
 
 	Queue* pPresentQueue = getQueue(QueueType::ePresent);
-	VkResult result = vkQueuePresentKHR(pPresentQueue->handle(), &presentInfo);
+	return vkQueuePresentKHR(pPresentQueue->handle(), &presentInfo);
+}
 
-	/*
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_framebufferResized) {
-		m_framebufferResized = false;
-		recreateSwapChain();
-	}
-	else if (result != VK_SUCCESS) {
-		throw std::runtime_error("failed to present swap chain image!");
-	}
-	*/
+void Device::wait() {
+	Queue* pPresentQueue = getQueue(QueueType::ePresent);
 	vkQueueWaitIdle(pPresentQueue->handle());
 }
 
@@ -676,6 +663,27 @@ bool Device::createQueues() {
 	m_queues[static_cast<uint32_t>(QueueType::ePresent)] = new Queue(this, queueFamilyIndices.presentFamily.value());
 
 	return true;
+}
+
+void Device::recreateSwapChain(GLFWwindow* window) {
+	destroySwapChain();
+	createSwapChain(window);
+	createDescriptorPool();
+}
+
+void Device::destroySwapChain() {
+	// destroy descriptor pool too since it needs the number of images in the swapchain
+	vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
+	m_descriptorPool = VK_NULL_HANDLE;
+
+	for (auto imageView : m_swapChainImageViews)
+		vkDestroyImageView(m_device, imageView, nullptr);
+	m_swapChainImageViews.clear();
+
+	m_swapChainImages.clear();
+
+	vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
+	m_swapChain = VK_NULL_HANDLE;
 }
 
 bool Device::createSwapChain(GLFWwindow* window) {

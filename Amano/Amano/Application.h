@@ -55,6 +55,10 @@ public:
 private:
 	void initWindow();
 
+	void recreateSwapChain();
+	void createSizeDependentObjects();
+	void cleanSizedependentObjects();
+
 	void drawFrame();
 	void drawUI(uint32_t imageIndex);
 	void updateUniformBuffer();
@@ -63,9 +67,6 @@ private:
 	void recordRenderCommands();
 	void recordBlitCommands();
 	void recordRaytracingCommands();
-
-	// Temporary method to create the data and graphics object needed for raytracing
-	void setupRaytracingData();
 
 private:
 	GLFWwindow* m_window;
