@@ -820,16 +820,6 @@ void Application::recordRenderCommands() {
 	// the render pass will transition the framebuffer from render target to shader sample
 	vkCmdEndRenderPass(m_renderCommandBuffer);
 
-	/*
-	// the depth should be transitioned manually?
-	TransitionImageBarrierBuilder<1> depthTransition;
-	depthTransition
-		.setImage(0, m_depthImage->handle())
-		.setLayouts(0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-		.setAccessMasks(0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
-		.setAspectMask(0, VK_IMAGE_ASPECT_DEPTH_BIT)
-		.execute(m_renderCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-	*/
 	pQueue->endCommands(m_renderCommandBuffer);
 }
 
@@ -883,6 +873,7 @@ void Application::recordRaytracingCommands() {
 		.setAccessMasks(0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT)
 		.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 	
+	// transition the sampled images into render targets
 	TransitionImageBarrierBuilder<3> gbufferTransition;
 	gbufferTransition
 		.setImage(0, m_computeImage->handle())
