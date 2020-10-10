@@ -13,6 +13,7 @@ namespace Amano {
 //   - srcAccessMask and dstAccessMask are 0
 //   - aspectMask is VK_IMAGE_ASPECT_COLOR_BIT
 //   - layerCount is 1
+//   - baseArrayLayer is 0
 //   - baseMipLevel is 0
 template<uint32_t COUNT>
 class TransitionImageBarrierBuilder {
@@ -42,6 +43,16 @@ public:
 
 	TransitionImageBarrierBuilder& setImage(uint32_t index, VkImage image) {
 		m_barriers[index].image = image;
+		return *this;
+	}
+
+	TransitionImageBarrierBuilder& setLayer(uint32_t index, uint32_t layer) {
+		m_barriers[index].subresourceRange.baseArrayLayer = layer;
+		return *this;
+	}
+
+	TransitionImageBarrierBuilder& setBaseLevel(uint32_t index, uint32_t level) {
+		m_barriers[index].subresourceRange.baseMipLevel = level;
 		return *this;
 	}
 

@@ -77,6 +77,7 @@ Application::Application()
 	, m_computePipeline{ VK_NULL_HANDLE }
 	, m_computeDescriptorSet{ VK_NULL_HANDLE }
 	, m_computeImage{ nullptr }
+	, m_environmentImage{ nullptr }
 	, m_computeCommandBuffer{ VK_NULL_HANDLE }
 	// raytracing
 	, m_raytracingImage{ nullptr }
@@ -106,6 +107,7 @@ Application::~Application() {
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_computeDescriptorSetLayout, nullptr);
 	vkDestroyPipelineLayout(m_device->handle(), m_computePipelineLayout, nullptr);
 	vkDestroyPipeline(m_device->handle(), m_computePipeline, nullptr);
+	delete m_environmentImage;
 
 	vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_raytracingFinishedSemaphore, nullptr);
@@ -451,6 +453,17 @@ bool Application::init() {
 	/////////////////////////////////////////////
 	// Compute
 	/////////////////////////////////////////////
+
+	m_environmentImage = new Image(m_device);
+	m_environmentImage->createCube(
+		"assets/textures/Yokohama2/posx.jpg",
+		"assets/textures/Yokohama2/negx.jpg",
+		"assets/textures/Yokohama2/posy.jpg",
+		"assets/textures/Yokohama2/negy.jpg",
+		"assets/textures/Yokohama2/posz.jpg",
+		"assets/textures/Yokohama2/negz.jpg",
+		*m_device->getQueue(QueueType::eGraphics));
+	m_environmentImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	DescriptorSetLayoutBuilder computeDescriptorSetLayoutbuilder;
 	computeDescriptorSetLayoutbuilder

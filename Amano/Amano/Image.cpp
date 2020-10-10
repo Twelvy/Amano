@@ -20,6 +20,7 @@ namespace Amano {
 
 Image::Image(Device* device)
 	: m_device{ device }
+	, m_type{ Type::eUnknown }
 	, m_width{ 0 }
 	, m_height{ 0 }
 	, m_mipLevels{ 0 }
@@ -37,6 +38,7 @@ Image::~Image() {
 }
 
 bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
+	m_type = Type::eTexture2D;
 	m_width = width;
 	m_height = height;
 	m_mipLevels = mipLevels;
@@ -76,6 +78,7 @@ bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkForm
 }
 
 bool Image::create2D(const std::string& filename, Queue& queue) {
+	m_type = Type::eTexture2D;
 	int texWidth, texHeight, texChannels;
 	stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
@@ -84,7 +87,7 @@ bool Image::create2D(const std::string& filename, Queue& queue) {
 		return false;
 	}
 
-	VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * 4);
+	VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * 4);  // TODO: compute correctly
 	m_mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 	m_width = static_cast<uint32_t>(texWidth);
 	m_height = static_cast<uint32_t>(texHeight);
@@ -119,10 +122,141 @@ bool Image::create2D(const std::string& filename, Queue& queue) {
 		return false;
 
 	transitionLayout(queue, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copyBufferToImage(queue, stagingBuffer);
+	copyBufferToImage(queue, stagingBuffer, 0);
 	//transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
 	//transitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, mipLevels);
-	generateMipmaps(queue);
+	generateMipmaps(queue, 0);
+
+	m_device->destroyBuffer(stagingBuffer);
+	m_device->freeDeviceMemory(stagingBufferMemory);
+
+	return true;
+}
+
+bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
+	m_type = Type::eTextureCube;
+	m_width = width;
+	m_height = height;
+	m_mipLevels = mipLevels;
+	m_format = format;
+
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.extent.width = m_width;
+	imageInfo.extent.height = m_height;
+	imageInfo.extent.depth = 1;
+	imageInfo.mipLevels = m_mipLevels;
+	imageInfo.arrayLayers =6;
+	imageInfo.format = m_format;
+	imageInfo.tiling = tiling;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageInfo.usage = usage;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+	if (vkCreateImage(m_device->handle(), &imageInfo, nullptr, &m_image) != VK_SUCCESS) {
+		std::cerr << "failed to create image!" << std::endl;
+		return false;
+	}
+
+	VkMemoryRequirements memRequirements;
+	vkGetImageMemoryRequirements(m_device->handle(), m_image, &memRequirements);
+
+	m_imageMemory = m_device->allocateMemory(memRequirements, properties);
+	if (m_imageMemory == VK_NULL_HANDLE)
+		return false;
+
+	vkBindImageMemory(m_device->handle(), m_image, m_imageMemory, 0);
+
+	return true;
+}
+
+bool Image::createCube(
+	const std::string& filenamePosX,
+	const std::string& filenameNegX,
+	const std::string& filenamePosY,
+	const std::string& filenameNegY,
+	const std::string& filenamePosZ,
+	const std::string& filenameNegZ,
+	Queue& queue) {
+
+	m_type = Type::eTextureCube;
+	m_format = VK_FORMAT_R8G8B8A8_SRGB;
+
+	const std::string* filenames[6] = {
+		&filenamePosX,
+		&filenameNegX,
+		&filenamePosY,
+		&filenameNegY,
+		&filenamePosZ,
+		&filenameNegZ
+	};
+
+	VkDeviceSize imageSize = 0;
+	VkBuffer stagingBuffer = VK_NULL_HANDLE;
+	VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
+
+	for (int i = 0; i < 6; ++i) {
+		int texWidth, texHeight, texChannels;
+		stbi_uc* pixels = stbi_load(filenames[i]->c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+		if (!pixels) {
+			std::cerr << "failed to load texture image!" << std::endl;
+			return false;
+		}
+
+		if (i == 0) {
+			imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * 4);  // TODO: compute correctly
+			m_mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+			m_width = static_cast<uint32_t>(texWidth);
+			m_height = static_cast<uint32_t>(texHeight);
+
+			// create the staging buffer
+			if (!m_device->createBufferAndMemory(
+				imageSize,
+				VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				stagingBuffer,
+				stagingBufferMemory))
+				return false;
+
+			// once we have the size, create the texture
+			if (!createCube(
+				m_width,
+				m_height,
+				m_mipLevels,
+				m_format,
+				VK_IMAGE_TILING_OPTIMAL,
+				VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+				return false;
+
+		}
+		else if (static_cast<uint32_t>(texWidth) != m_width || static_cast<uint32_t>(texHeight) != m_height) {
+			stbi_image_free(pixels);
+
+			m_device->destroyBuffer(stagingBuffer);
+			m_device->freeDeviceMemory(stagingBufferMemory);
+
+			return false;
+		}
+
+		void* data;
+		vkMapMemory(m_device->handle(), stagingBufferMemory, 0, imageSize, 0, &data);
+		memcpy(data, pixels, static_cast<size_t>(imageSize));
+		vkUnmapMemory(m_device->handle(), stagingBufferMemory);
+
+		stbi_image_free(pixels);
+
+		// transition all the mip level of face i
+		transitionLayoutInternal(queue, i, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		copyBufferToImage(queue, stagingBuffer, i);
+
+		// TODO: it is maybe possible to generate the mips for all the faces at the same time
+		generateMipmaps(queue, i);
+	}
 
 	m_device->destroyBuffer(stagingBuffer);
 	m_device->freeDeviceMemory(stagingBufferMemory);
@@ -134,13 +268,27 @@ bool Image::createView(VkImageAspectFlags aspectFlags) {
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewInfo.image = m_image;
-	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	viewInfo.format = m_format;
 	viewInfo.subresourceRange.aspectMask = aspectFlags;
 	viewInfo.subresourceRange.baseMipLevel = 0;
 	viewInfo.subresourceRange.levelCount = m_mipLevels;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
-	viewInfo.subresourceRange.layerCount = 1;
+
+	switch (m_type)
+	{
+	case Amano::Image::Type::eUnknown:
+		return false;
+	case Amano::Image::Type::eTexture2D:
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.subresourceRange.layerCount = 1;
+		break;
+	case Amano::Image::Type::eTextureCube:
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+		viewInfo.subresourceRange.layerCount = 6;
+		break;
+	default:
+		break;
+	}
 
 	if (vkCreateImageView(m_device->handle(), &viewInfo, nullptr, &m_imageView) != VK_SUCCESS) {
 		std::cerr << "failed to create texture image view!" << std::endl;
@@ -151,12 +299,17 @@ bool Image::createView(VkImageAspectFlags aspectFlags) {
 }
 
 void Image::transitionLayout(Queue& queue, VkImageLayout oldLayout, VkImageLayout newLayout) {
+	transitionLayoutInternal(queue, 0, oldLayout, newLayout);
+}
+
+void Image::transitionLayoutInternal(Queue& queue, uint32_t layer, VkImageLayout oldLayout, VkImageLayout newLayout) {
 	VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
 
 	TransitionImageBarrierBuilder<1> transition;
 	transition
 		.setImage(0, m_image)
 		.setLevelCount(0, m_mipLevels)
+		.setLayer(0, layer)
 		.setLayouts(0, oldLayout, newLayout);
 
 	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
@@ -206,7 +359,7 @@ void Image::transitionLayout(Queue& queue, VkImageLayout oldLayout, VkImageLayou
 	queue.endSingleTimeCommands(commandBuffer);
 }
 
-void Image::copyBufferToImage(Queue& queue, VkBuffer buffer) {
+void Image::copyBufferToImage(Queue& queue, VkBuffer buffer, uint32_t layer) {
 	VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
 
 	VkBufferImageCopy region{};
@@ -216,7 +369,7 @@ void Image::copyBufferToImage(Queue& queue, VkBuffer buffer) {
 
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	region.imageSubresource.mipLevel = 0;
-	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.baseArrayLayer = layer;
 	region.imageSubresource.layerCount = 1;
 
 	region.imageOffset = { 0, 0, 0 };
@@ -238,20 +391,22 @@ void Image::copyBufferToImage(Queue& queue, VkBuffer buffer) {
 	queue.endSingleTimeCommands(commandBuffer);
 }
 
-void Image::generateMipmaps(Queue& queue) {
+void Image::generateMipmaps(Queue& queue, uint32_t layer) {
 	if (!m_device->doesSuportBlitting(m_format))
 		return;
 
 	VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
 
 	TransitionImageBarrierBuilder<1> transition;
-	transition.setImage(0, m_image);
+	transition
+		.setImage(0, m_image)
+		.setLayer(0, layer);
 
 	int32_t mipWidth = static_cast<int32_t>(m_width);
 	int32_t mipHeight = static_cast<int32_t>(m_height);
 
 	// All mip levels are VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-
+	
 	for (uint32_t i = 1; i < m_mipLevels; i++) {
 		// set (i-1) mip level:
 		//   transfer dst -> transfer src
@@ -267,13 +422,13 @@ void Image::generateMipmaps(Queue& queue) {
 		blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
 		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.srcSubresource.mipLevel = i - 1;
-		blit.srcSubresource.baseArrayLayer = 0;
+		blit.srcSubresource.baseArrayLayer = layer;
 		blit.srcSubresource.layerCount = 1;
 		blit.dstOffsets[0] = { 0, 0, 0 };
 		blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
 		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.dstSubresource.mipLevel = i;
-		blit.dstSubresource.baseArrayLayer = 0;
+		blit.dstSubresource.baseArrayLayer = layer;
 		blit.dstSubresource.layerCount = 1;
 
 		vkCmdBlitImage(commandBuffer,

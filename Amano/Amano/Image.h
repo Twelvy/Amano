@@ -13,6 +13,13 @@ class Queue;
 // It is also used to generate a view on it
 class Image
 {
+private:
+	enum class Type {
+		eUnknown,
+		eTexture2D,
+		eTextureCube
+	};
+
 public:
 	Image(Device* device);
 	~Image();
@@ -25,15 +32,28 @@ public:
 
 	bool create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
 	bool create2D(const std::string& filename, Queue& queue);
+
+	bool createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
+	bool createCube(
+		const std::string& filenamePosX,
+		const std::string& filenameNegX,
+		const std::string& filenamePosY,
+		const std::string& filenameNegY,
+		const std::string& filenamePosZ,
+		const std::string& filenameNegZ,
+		Queue& queue);
+
 	bool createView(VkImageAspectFlags aspectFlags);
 
 	void transitionLayout(Queue& queue, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 private:
-	void copyBufferToImage(Queue& queue, VkBuffer buffer);
-	void generateMipmaps(Queue& queue);
+	void transitionLayoutInternal(Queue& queue, uint32_t layer, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void copyBufferToImage(Queue& queue, VkBuffer buffer, uint32_t layer);
+	void generateMipmaps(Queue& queue, uint32_t layer);
 private:
 	Device* m_device;
+	Type m_type;
 	uint32_t m_width;
 	uint32_t m_height;
 	uint32_t m_mipLevels;

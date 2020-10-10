@@ -130,6 +130,7 @@ private:
 	VkPipeline m_computePipeline;
 	VkDescriptorSet m_computeDescriptorSet;
 	Image* m_computeImage;
+	Image* m_environmentImage;
 	VkCommandBuffer m_computeCommandBuffer;
 
 	// for raytracing
