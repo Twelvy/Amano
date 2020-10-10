@@ -31,6 +31,13 @@ SamplerBuilder& SamplerBuilder::setMaxLoad(float maxLod) {
 	return *this;
 }
 
+SamplerBuilder& SamplerBuilder::setFilter(VkFilter magFilter, VkFilter minFilter) {
+	m_samplerInfo.magFilter = magFilter; 
+	m_samplerInfo.minFilter = minFilter;
+
+	return *this;
+}
+
 
 VkSampler SamplerBuilder::build(Device& device) {
 	VkSampler sampler = VK_NULL_HANDLE;

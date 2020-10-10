@@ -51,6 +51,7 @@ Application::Application()
 	, m_finalFramebuffers()
 	// necessary information to display the model
 	, m_depthImage{ nullptr }
+	, m_nearestSampler{VK_NULL_HANDLE }
 	, m_GBuffer{}
 	, m_renderPass{ VK_NULL_HANDLE }
 	, m_framebuffer{ VK_NULL_HANDLE }
@@ -119,6 +120,7 @@ Application::~Application() {
 
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_descriptorSet);
 	vkDestroySampler(m_device->handle(), m_sampler, nullptr);
+	vkDestroySampler(m_device->handle(), m_nearestSampler, nullptr);
 	delete m_modelTexture;
 	delete m_mesh;
 	delete m_uniformBuffer;
@@ -176,7 +178,7 @@ Application::Formats Application::getFormats() {
 	formats.depthFormat = m_device->findSupportedFormat(
 		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
 	);
 	formats.colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
 	formats.normalFormat = VK_FORMAT_R8G8B8A8_SNORM;
@@ -233,7 +235,7 @@ void Application::createSizeDependentObjects() {
 			1,
 			formats.depthFormat,
 			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		m_depthImage->createView(VK_IMAGE_ASPECT_DEPTH_BIT);
 		m_depthImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -246,7 +248,7 @@ void Application::createSizeDependentObjects() {
 			1,
 			formats.colorFormat,
 			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		m_GBuffer.colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -257,27 +259,15 @@ void Application::createSizeDependentObjects() {
 			1,
 			formats.normalFormat,
 			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		m_GBuffer.normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-
-		m_GBuffer.depthImage = new Image(m_device);
-		m_GBuffer.depthImage->create(
-			m_width,
-			m_height,
-			1,
-			formats.depthFormat2,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		m_GBuffer.depthImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 		// create the framebuffer
 		FramebufferBuilder framebufferBuilder;
 		framebufferBuilder
 			.addAttachment(m_GBuffer.colorImage->viewHandle())
 			.addAttachment(m_GBuffer.normalImage->viewHandle())
-			.addAttachment(m_GBuffer.depthImage->viewHandle())
 			.addAttachment(m_depthImage->viewHandle());
 		m_framebuffer = framebufferBuilder.build(*m_device, m_renderPass, m_width, m_height);
 
@@ -299,17 +289,17 @@ void Application::createSizeDependentObjects() {
 			1,
 			formats.colorFormat,
 			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		m_computeImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 		m_computeImage->transitionLayout(*m_device->getQueue(QueueType::eCompute), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 		// update the descriptor set
-		DescriptorSetBuilder computeDescriptorSetBuilder(m_device, 2, m_computeDescriptorSetLayout);
+		DescriptorSetBuilder computeDescriptorSetBuilder(m_device, 2, m_computeDescriptorSetLayout );
 		computeDescriptorSetBuilder
-			.addStorageImage(m_GBuffer.colorImage->viewHandle(), 0)
-			.addStorageImage(m_GBuffer.normalImage->viewHandle(), 1)
-			.addStorageImage(m_GBuffer.depthImage->viewHandle(), 2)
+			.addImage(m_nearestSampler, m_GBuffer.colorImage->viewHandle(), 0)
+			.addImage(m_nearestSampler, m_GBuffer.normalImage->viewHandle(), 1)
+			.addImage(m_nearestSampler, m_depthImage->viewHandle(), 2)
 			.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 3)
 			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 4)
 			.addStorageImage(m_computeImage->viewHandle(), 5);
@@ -337,9 +327,9 @@ void Application::createSizeDependentObjects() {
 			.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
 			.addStorageImage(m_raytracingImage->viewHandle(), 1)
 			.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2)
-			.addStorageImage(m_GBuffer.depthImage->viewHandle(), 3)
-			.addStorageImage(m_GBuffer.normalImage->viewHandle(), 4)
-			.addStorageImage(m_computeImage->viewHandle(), 5)
+			.addImage(m_nearestSampler, m_depthImage->viewHandle(), 3)
+			.addImage(m_nearestSampler, m_GBuffer.normalImage->viewHandle(), 4)
+			.addImage(m_nearestSampler, m_computeImage->viewHandle(), 5)
 			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 6);
 		m_raytracingDescriptorSet = raytracingDescriptorSetBuilder.buildAndUpdate();
 
@@ -373,8 +363,6 @@ void Application::cleanSizedependentObjects() {
 	vkDestroyFramebuffer(m_device->handle(), m_framebuffer, nullptr);
 	m_framebuffer = VK_NULL_HANDLE;
 
-	delete m_GBuffer.depthImage;
-	m_GBuffer.depthImage = nullptr;
 	delete m_GBuffer.normalImage;
 	m_GBuffer.normalImage = nullptr;
 	delete m_GBuffer.colorImage;
@@ -411,11 +399,10 @@ bool Application::init() {
 	// create the render pass
 	RenderPassBuilder renderPassBuilder;
 	renderPassBuilder
-		.addColorAttachment(formats.colorFormat, VK_IMAGE_LAYOUT_GENERAL) // attachment 0 for color
-		.addColorAttachment(formats.normalFormat, VK_IMAGE_LAYOUT_GENERAL) // attachment 1 for normal
-		.addColorAttachment(formats.depthFormat2, VK_IMAGE_LAYOUT_GENERAL) // attachment 2 for depth
-		.addDepthAttachment(formats.depthFormat) // attachment 3 for depth buffer
-		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0, 1, 2 }, 3) // subpass 0
+		.addColorAttachment(formats.colorFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) // attachment 0 for color
+		.addColorAttachment(formats.normalFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) // attachment 1 for normal
+		.addDepthAttachment(formats.depthFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) // attachment 2 for depth buffer
+		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0, 1 }, 2) // subpass 0
 		.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
 	m_renderPass = renderPassBuilder.build(*m_device);
 	
@@ -439,7 +426,7 @@ bool Application::init() {
 		//.setViewport(0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f)
 		//.setScissor(0, 0, m_width, m_height)
 		.setRasterizer(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-	m_pipeline = pipelineBuilder.build(m_pipelineLayout, m_renderPass, 0, 3, true);
+	m_pipeline = pipelineBuilder.build(m_pipelineLayout, m_renderPass, 0, 2, true);
 
 	// create the uniform buffer of the shader we are using
 	m_uniformBuffer = new UniformBuffer<PerFrameUniformBufferObject>(m_device);
@@ -459,18 +446,25 @@ bool Application::init() {
 	samplerBuilder.setMaxLoad((float)m_modelTexture->getMipLevels());
 	m_sampler = samplerBuilder.build(*m_device);
 
+	// create a sampler for the depth texture
+	SamplerBuilder depthSamplerBuilder;
+	depthSamplerBuilder
+		.setMaxLoad(1)
+		.setFilter(VK_FILTER_NEAREST, VK_FILTER_NEAREST);
+	m_nearestSampler = samplerBuilder.build(*m_device);
+
 	/////////////////////////////////////////////
 	// Compute
 	/////////////////////////////////////////////
 
 	DescriptorSetLayoutBuilder computeDescriptorSetLayoutbuilder;
 	computeDescriptorSetLayoutbuilder
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  VK_SHADER_STAGE_COMPUTE_BIT)    // color image
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  VK_SHADER_STAGE_COMPUTE_BIT)    // normal image
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  VK_SHADER_STAGE_COMPUTE_BIT)    // depth image
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)    // camera information
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)    // light information
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  VK_SHADER_STAGE_COMPUTE_BIT);   // output image
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // albedo image
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // normal image
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // depth image
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_COMPUTE_BIT)    // camera information
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_COMPUTE_BIT)    // light information
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          VK_SHADER_STAGE_COMPUTE_BIT);   // output image
 	m_computeDescriptorSetLayout = computeDescriptorSetLayoutbuilder.build(*m_device);
 
 	// create raytracing pipeline layout
@@ -497,9 +491,9 @@ bool Application::init() {
 		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, VK_SHADER_STAGE_RAYGEN_BIT_NV)  // acceleration structure
 		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // output image
 		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV)             // ray parameters
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // depth image
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // normal image
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // color image
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_NV)     // depth image
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_NV)     // normal image
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_NV)     // albedo image
 		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV);            // light information
 	m_raytracingDescriptorSetLayout = raytracingDescriptorSetLayoutbuilder.build(*m_device);
 
@@ -761,19 +755,22 @@ void Application::recordRenderCommands() {
 	auto pQueue = m_device->getQueue(QueueType::eGraphics);
 	m_renderCommandBuffer = pQueue->beginCommands();
 
-	// transition images from blit to render target
+	// transition images from shader sampler to render target
 	TransitionImageBarrierBuilder<3> transition;
 	for (uint32_t i = 0; i < transition.getCount(); ++i) {
 		transition
 			.setLayouts(i, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-			.setAccessMasks(i, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+			.setAccessMasks(i, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
 			.setAspectMask(i, VK_IMAGE_ASPECT_COLOR_BIT);
 	}
 	transition
 		.setImage(0, m_GBuffer.colorImage->handle())
 		.setImage(1, m_GBuffer.normalImage->handle())
-		.setImage(2, m_GBuffer.depthImage->handle())
-		.execute(m_renderCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		.setImage(2, m_depthImage->handle())
+		.setLayouts(2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+		.setAccessMasks(2, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+		.setAspectMask(2, VK_IMAGE_ASPECT_DEPTH_BIT)
+		.execute(m_renderCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 	
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -820,9 +817,19 @@ void Application::recordRenderCommands() {
 
 	vkCmdDrawIndexed(m_renderCommandBuffer, m_mesh->getIndexCount(), 1, 0, 0, 0);
 
-	// the render pass will transition the framebuffer from render target to blit source
+	// the render pass will transition the framebuffer from render target to shader sample
 	vkCmdEndRenderPass(m_renderCommandBuffer);
 
+	/*
+	// the depth should be transitioned manually?
+	TransitionImageBarrierBuilder<1> depthTransition;
+	depthTransition
+		.setImage(0, m_depthImage->handle())
+		.setLayouts(0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		.setAccessMasks(0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+		.setAspectMask(0, VK_IMAGE_ASPECT_DEPTH_BIT)
+		.execute(m_renderCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+	*/
 	pQueue->endCommands(m_renderCommandBuffer);
 }
 
@@ -834,6 +841,15 @@ void Application::recordComputeCommands() {
 	vkCmdBindDescriptorSets(m_computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipelineLayout, 0, 1, &m_computeDescriptorSet, 0, nullptr);
 
 	vkCmdDispatch(m_computeCommandBuffer, m_width, m_height, 1);
+
+	// transition the compute image to shader sampler
+	TransitionImageBarrierBuilder<1> transition;
+	transition
+		.setImage(0, m_computeImage->handle())
+		.setLayouts(0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		.setAccessMasks(0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+		.execute(m_computeCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
 	pQueue->endCommands(m_computeCommandBuffer);
 }
@@ -866,7 +882,23 @@ void Application::recordRaytracingCommands() {
 		.setLayouts(0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
 		.setAccessMasks(0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT)
 		.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-
+	
+	TransitionImageBarrierBuilder<3> gbufferTransition;
+	gbufferTransition
+		.setImage(0, m_computeImage->handle())
+		.setLayouts(0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
+		.setAccessMasks(0, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
+		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+		.setImage(1, m_GBuffer.normalImage->handle())
+		.setLayouts(1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+		.setAccessMasks(1, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+		.setAspectMask(1, VK_IMAGE_ASPECT_COLOR_BIT)
+		.setImage(2, m_depthImage->handle())
+		.setLayouts(2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+		.setAccessMasks(2, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+		.setAspectMask(2, VK_IMAGE_ASPECT_DEPTH_BIT)
+		.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+	
 	pQueue->endCommands(m_raytracingCommandBuffer);
 }
 

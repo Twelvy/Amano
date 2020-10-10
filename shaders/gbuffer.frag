@@ -7,12 +7,10 @@ layout(location = 2) in vec2 fragTexCoord;
 
 layout(location = 0) out vec4 outAlbedo;
 layout(location = 1) out vec4 outNormal;
-layout(location = 2) out vec4 outDepth;
 
 layout(binding = 1) uniform sampler2D texSampler;
 
 void main() {
     outAlbedo = texture(texSampler, fragTexCoord);
     outNormal = vec4(normalize(worldNormal), 0.0);
-    outDepth = vec4(gl_FragCoord.z, 0.0, 0.0, 0.0);
 }

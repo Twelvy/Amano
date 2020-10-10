@@ -99,10 +99,10 @@ private:
 	// the information for the sample is here
 	// All of this should be wrapped into proper classes for easy access
 	Image* m_depthImage;
+	VkSampler m_nearestSampler;
 	struct {
 		Image* colorImage = nullptr;
 		Image* normalImage = nullptr;
-		Image* depthImage = nullptr;
 	} m_GBuffer;
 	VkRenderPass m_renderPass;
 	VkFramebuffer m_framebuffer;

@@ -25,7 +25,7 @@ RenderPassBuilder& RenderPassBuilder::addColorAttachment(VkFormat format, VkImag
 	return *this;
 }
 
-RenderPassBuilder& RenderPassBuilder::addDepthAttachment(VkFormat format) {
+RenderPassBuilder& RenderPassBuilder::addDepthAttachment(VkFormat format, VkImageLayout finalLayout) {
 	VkAttachmentDescription& depthAttachment = m_attachments.emplace_back();
 	depthAttachment.format = format;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -34,7 +34,7 @@ RenderPassBuilder& RenderPassBuilder::addDepthAttachment(VkFormat format) {
 	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthAttachment.finalLayout = finalLayout;
 
 	return *this;
 }
