@@ -877,21 +877,13 @@ void Application::recordRaytracingCommands() {
 		.setAccessMasks(0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT)
 		.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 	
-	// transition the sampled images into render targets
-	TransitionImageBarrierBuilder<3> gbufferTransition;
+	// transition the lighting image for storage access
+	TransitionImageBarrierBuilder<1> gbufferTransition;
 	gbufferTransition
 		.setImage(0, m_computeImage->handle())
 		.setLayouts(0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
 		.setAccessMasks(0, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
 		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
-		.setImage(1, m_GBuffer.normalImage->handle())
-		.setLayouts(1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-		.setAccessMasks(1, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-		.setAspectMask(1, VK_IMAGE_ASPECT_COLOR_BIT)
-		.setImage(2, m_depthImage->handle())
-		.setLayouts(2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-		.setAccessMasks(2, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
-		.setAspectMask(2, VK_IMAGE_ASPECT_DEPTH_BIT)
 		.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 	
 	pQueue->endCommands(m_raytracingCommandBuffer);
