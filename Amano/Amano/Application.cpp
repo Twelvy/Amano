@@ -830,7 +830,12 @@ void Application::recordComputeCommands() {
 	vkCmdBindPipeline(m_computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
 	vkCmdBindDescriptorSets(m_computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipelineLayout, 0, 1, &m_computeDescriptorSet, 0, nullptr);
 
-	vkCmdDispatch(m_computeCommandBuffer, m_width, m_height, 1);
+	// local size is 32 for x and y
+	const uint32_t locaSizeX = 32;
+	const uint32_t locaSizeY = 32;
+	uint32_t dispatchX = (m_width + locaSizeX - 1) / locaSizeX;
+ 	uint32_t dispatchY = (m_height + locaSizeY - 1) / locaSizeY;
+	vkCmdDispatch(m_computeCommandBuffer, dispatchX, dispatchY, 1);
 
 	// transition the compute image to shader sampler
 	TransitionImageBarrierBuilder<1> transition;
