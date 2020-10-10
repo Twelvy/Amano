@@ -182,7 +182,6 @@ Application::Formats Application::getFormats() {
 	);
 	formats.colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
 	formats.normalFormat = VK_FORMAT_R8G8B8A8_SNORM;
-	formats.depthFormat2 = VK_FORMAT_R32_SFLOAT;
 	return formats;
 }
 

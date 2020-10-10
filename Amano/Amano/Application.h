@@ -59,7 +59,6 @@ private:
 		VkFormat depthFormat;
 		VkFormat colorFormat;
 		VkFormat normalFormat;
-		VkFormat depthFormat2;
 	};
 	Formats getFormats();
 
