@@ -297,9 +297,10 @@ void Application::createSizeDependentObjects() {
 			.addImage(m_nearestSampler, m_GBuffer.colorImage->viewHandle(), 0)
 			.addImage(m_nearestSampler, m_GBuffer.normalImage->viewHandle(), 1)
 			.addImage(m_nearestSampler, m_depthImage->viewHandle(), 2)
-			.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 3)
-			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 4)
-			.addStorageImage(m_computeImage->viewHandle(), 5);
+			.addImage(m_sampler, m_environmentImage->viewHandle(), 3)
+			.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 4)
+			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 5)
+			.addStorageImage(m_computeImage->viewHandle(), 6);
 		m_computeDescriptorSet = computeDescriptorSetBuilder.buildAndUpdate();
 
 		/////////////////////////////////////////////
@@ -456,12 +457,12 @@ bool Application::init() {
 
 	m_environmentImage = new Image(m_device);
 	m_environmentImage->createCube(
-		"assets/textures/Yokohama2/posx.jpg",
-		"assets/textures/Yokohama2/negx.jpg",
-		"assets/textures/Yokohama2/posy.jpg",
-		"assets/textures/Yokohama2/negy.jpg",
-		"assets/textures/Yokohama2/posz.jpg",
-		"assets/textures/Yokohama2/negz.jpg",
+		"assets/textures/Yokohama3/posx.jpg",
+		"assets/textures/Yokohama3/negx.jpg",
+		"assets/textures/Yokohama3/posy.jpg",
+		"assets/textures/Yokohama3/negy.jpg",
+		"assets/textures/Yokohama3/posz.jpg",
+		"assets/textures/Yokohama3/negz.jpg",
 		*m_device->getQueue(QueueType::eGraphics));
 	m_environmentImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -470,6 +471,7 @@ bool Application::init() {
 		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // albedo image
 		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // normal image
 		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // depth image
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // environment image
 		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_COMPUTE_BIT)    // camera information
 		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_COMPUTE_BIT)    // light information
 		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          VK_SHADER_STAGE_COMPUTE_BIT);   // output image
