@@ -120,9 +120,6 @@ private:
 	VkSemaphore m_raytracingFinishedSemaphore;
 	VkSemaphore m_blitFinishedSemaphore;
 	VkFence m_inFlightFence;
-	VkFence m_lightingFence;
-	VkFence m_raytracingFence;
-	VkFence m_blitFence;
 	// need more for double buffering
 	VkCommandBuffer m_renderCommandBuffer;
 	std::vector<VkCommandBuffer> m_blitCommandBuffers;

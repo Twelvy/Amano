@@ -69,7 +69,6 @@ Application::Application()
 	, m_raytracingFinishedSemaphore{ VK_NULL_HANDLE }
 	, m_blitFinishedSemaphore{ VK_NULL_HANDLE }
 	, m_inFlightFence{ VK_NULL_HANDLE }
-	, m_blitFence{ VK_NULL_HANDLE }
 	, m_renderCommandBuffer{ VK_NULL_HANDLE }
 	, m_blitCommandBuffers()
 	// compute
@@ -114,9 +113,6 @@ Application::~Application() {
 	vkDestroySemaphore(m_device->handle(), m_renderFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_imageAvailableSemaphore, nullptr);
 	vkDestroyFence(m_device->handle(), m_inFlightFence, nullptr);
-	vkDestroyFence(m_device->handle(), m_lightingFence, nullptr);
-	vkDestroyFence(m_device->handle(), m_raytracingFence, nullptr);
-	vkDestroyFence(m_device->handle(), m_blitFence, nullptr);
 
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_descriptorSet);
 	vkDestroySampler(m_device->handle(), m_sampler, nullptr);
@@ -541,11 +537,7 @@ bool Application::init() {
 		return false;
 	}
 	
-	if (vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_blitFence) != VK_SUCCESS ||
-		vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_lightingFence) != VK_SUCCESS ||
-		vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_raytracingFence) != VK_SUCCESS ||
-		vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_inFlightFence) != VK_SUCCESS) {
-
+	if (vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_inFlightFence) != VK_SUCCESS) {
 		std::cerr << "failed to create fences for a frame!" << std::endl;
 		return false;
 	}
@@ -563,11 +555,8 @@ void Application::onScrollCallback(double xscroll, double yscroll) {
 void Application::drawFrame() {
 	// wait for the previous frame to finish
 	// we could allow multiple frames at the same time in the future
-	vkWaitForFences(m_device->handle(), 1, &m_blitFence, VK_TRUE, UINT64_MAX);
+	//vkWaitForFences(m_device->handle(), 1, &m_blitFence, VK_TRUE, UINT64_MAX);
 	vkWaitForFences(m_device->handle(), 1, &m_inFlightFence, VK_TRUE, UINT64_MAX);
-	vkResetFences(m_device->handle(), 1, &m_blitFence);
-	vkResetFences(m_device->handle(), 1, &m_raytracingFence);
-	vkResetFences(m_device->handle(), 1, &m_lightingFence);
 	vkResetFences(m_device->handle(), 1, &m_inFlightFence);
 
 	if (m_framebufferResized) {
@@ -611,7 +600,7 @@ void Application::drawFrame() {
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	auto pQueue = m_device->getQueue(QueueType::eGraphics);
-	if (!pQueue->submit(&submitInfo, m_lightingFence))
+	if (!pQueue->submit(&submitInfo, VK_NULL_HANDLE))
 		return;
 
 	// submit lighting compute
@@ -635,7 +624,7 @@ void Application::drawFrame() {
 	computeSubmitInfo.pSignalSemaphores = computeSignalSemaphores;
 
 	auto pComputeQueue = m_device->getQueue(QueueType::eCompute);
-	if (!pComputeQueue->submit(&computeSubmitInfo, m_raytracingFence))
+	if (!pComputeQueue->submit(&computeSubmitInfo, VK_NULL_HANDLE))
 		return;
 
 	// submit raytracing
@@ -658,7 +647,7 @@ void Application::drawFrame() {
 	raytracingSubmitInfo.signalSemaphoreCount = 1;
 	raytracingSubmitInfo.pSignalSemaphores = raytracingSignalSemaphores;
 
-	if (!pQueue->submit(&raytracingSubmitInfo, m_blitFence))
+	if (!pQueue->submit(&raytracingSubmitInfo, VK_NULL_HANDLE))
 		return;
 
 	// submit blit
