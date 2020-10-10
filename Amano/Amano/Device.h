@@ -10,10 +10,10 @@ namespace Amano {
 
 enum class QueueType : uint32_t {
 	eGraphics = 0,
-	ePresent = 1,
-	// eCompute
+	eCompute = 1,
+	ePresent = 2,
 	// eTransfer
-	eCount = 2
+	eCount = 3
 };
 
 class Device {

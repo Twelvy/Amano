@@ -4,6 +4,7 @@
 #include "Builder/DescriptorSetLayoutBuilder.h"
 #include "Builder/FramebufferBuilder.h"
 #include "Builder/GraphicsPipelineBuilder.h"
+#include "Builder/ComputePipelineBuilder.h"
 #include "Builder/PipelineLayoutBuilder.h"
 #include "Builder/RaytracingPipelineBuilder.h"
 #include "Builder/RenderPassBuilder.h"
@@ -70,6 +71,14 @@ Application::Application()
 	, m_blitFence{ VK_NULL_HANDLE }
 	, m_renderCommandBuffer{ VK_NULL_HANDLE }
 	, m_blitCommandBuffers()
+	// compute
+	, m_computeDescriptorSetLayout{ VK_NULL_HANDLE }
+	, m_computePipelineLayout{ VK_NULL_HANDLE }
+	, m_computePipeline{ VK_NULL_HANDLE }
+	, m_computeDescriptorSet{ VK_NULL_HANDLE }
+	, m_computeImage{ nullptr }
+	, m_computeCommandBuffer{ VK_NULL_HANDLE }
+	// raytracing
 	, m_raytracingImage{ nullptr }
 	, m_raytracingUniformBuffer{ nullptr }
 	, m_raytracingDescriptorSetLayout{ VK_NULL_HANDLE }
@@ -94,11 +103,17 @@ Application::~Application() {
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_raytracingDescriptorSetLayout, nullptr);
 	delete m_raytracingUniformBuffer;
 
+	vkDestroyDescriptorSetLayout(m_device->handle(), m_computeDescriptorSetLayout, nullptr);
+	vkDestroyPipelineLayout(m_device->handle(), m_computePipelineLayout, nullptr);
+	vkDestroyPipeline(m_device->handle(), m_computePipeline, nullptr);
+
 	vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_raytracingFinishedSemaphore, nullptr);
+	vkDestroySemaphore(m_device->handle(), m_lightingFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_renderFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_imageAvailableSemaphore, nullptr);
 	vkDestroyFence(m_device->handle(), m_inFlightFence, nullptr);
+	vkDestroyFence(m_device->handle(), m_lightingFence, nullptr);
 	vkDestroyFence(m_device->handle(), m_raytracingFence, nullptr);
 	vkDestroyFence(m_device->handle(), m_blitFence, nullptr);
 
@@ -270,9 +285,39 @@ void Application::createSizeDependentObjects() {
 		DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_descriptorSetLayout);
 		descriptorSetBuilder
 			.addUniformBuffer(m_uniformBuffer->getBuffer(), m_uniformBuffer->getSize(), 0)
-			.addImage(m_sampler, m_modelTexture->viewHandle(), 1)
-			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 2);
+			.addImage(m_sampler, m_modelTexture->viewHandle(), 1);
 		m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
+
+		/////////////////////////////////////////////
+		// Compute
+		/////////////////////////////////////////////
+		
+		m_computeImage = new Image(m_device);
+		m_computeImage->create(
+			m_width,
+			m_height,
+			1,
+			formats.colorFormat,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		m_computeImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+		m_computeImage->transitionLayout(*m_device->getQueue(QueueType::eCompute), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+		// update the descriptor set
+		DescriptorSetBuilder computeDescriptorSetBuilder(m_device, 2, m_computeDescriptorSetLayout);
+		computeDescriptorSetBuilder
+			.addStorageImage(m_GBuffer.colorImage->viewHandle(), 0)
+			.addStorageImage(m_GBuffer.normalImage->viewHandle(), 1)
+			.addStorageImage(m_GBuffer.depthImage->viewHandle(), 2)
+			.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 3)
+			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 4)
+			.addStorageImage(m_computeImage->viewHandle(), 5);
+		m_computeDescriptorSet = computeDescriptorSetBuilder.buildAndUpdate();
+
+		/////////////////////////////////////////////
+		// raytracing
+		/////////////////////////////////////////////
 
 		// create raytracing image
 		m_raytracingImage = new Image(m_device);
@@ -294,14 +339,15 @@ void Application::createSizeDependentObjects() {
 			.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2)
 			.addStorageImage(m_GBuffer.depthImage->viewHandle(), 3)
 			.addStorageImage(m_GBuffer.normalImage->viewHandle(), 4)
-			.addStorageImage(m_GBuffer.colorImage->viewHandle(), 5)
+			.addStorageImage(m_computeImage->viewHandle(), 5)
 			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 6);
 		m_raytracingDescriptorSet = raytracingDescriptorSetBuilder.buildAndUpdate();
 
 		// record the commands that will be executed, rendering and blitting
 		recordRenderCommands();
-		recordBlitCommands();
+		recordComputeCommands();
 		recordRaytracingCommands();
+		recordBlitCommands();
 	}
 }
 
@@ -310,6 +356,13 @@ void Application::cleanSizedependentObjects() {
 	m_raytracingDescriptorSet = VK_NULL_HANDLE;
 	delete m_raytracingImage;
 	m_raytracingImage = nullptr;
+
+	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_computeDescriptorSet);
+	m_computeDescriptorSet = VK_NULL_HANDLE;
+	delete m_computeImage;
+	m_computeImage = nullptr;
+	m_device->getQueue(QueueType::eCompute)->freeCommandBuffer(m_computeCommandBuffer);
+	m_computeCommandBuffer = VK_NULL_HANDLE;
 
 	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
 	m_renderCommandBuffer = VK_NULL_HANDLE;
@@ -370,8 +423,7 @@ bool Application::init() {
 	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
 	descriptorSetLayoutbuilder
 		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	m_descriptorSetLayout = descriptorSetLayoutbuilder.build(*m_device);
 	
 	// create pipeline layout
@@ -406,6 +458,35 @@ bool Application::init() {
 	SamplerBuilder samplerBuilder;
 	samplerBuilder.setMaxLoad((float)m_modelTexture->getMipLevels());
 	m_sampler = samplerBuilder.build(*m_device);
+
+	/////////////////////////////////////////////
+	// Compute
+	/////////////////////////////////////////////
+
+	DescriptorSetLayoutBuilder computeDescriptorSetLayoutbuilder;
+	computeDescriptorSetLayoutbuilder
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  VK_SHADER_STAGE_COMPUTE_BIT)    // color image
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  VK_SHADER_STAGE_COMPUTE_BIT)    // normal image
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  VK_SHADER_STAGE_COMPUTE_BIT)    // depth image
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)    // camera information
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)    // light information
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  VK_SHADER_STAGE_COMPUTE_BIT);   // output image
+	m_computeDescriptorSetLayout = computeDescriptorSetLayoutbuilder.build(*m_device);
+
+	// create raytracing pipeline layout
+	PipelineLayoutBuilder computePipelineLayoutBuilder;
+	computePipelineLayoutBuilder.addDescriptorSetLayout(m_computeDescriptorSetLayout);
+	m_computePipelineLayout = computePipelineLayoutBuilder.build(*m_device);
+
+	// load the shaders and create the pipeline
+	ComputePipelineBuilder computePipelineBuilder(m_device);
+	computePipelineBuilder
+		.addShader("compiled_shaders/deferred_lighting.spv", VK_SHADER_STAGE_COMPUTE_BIT);
+	m_computePipeline = computePipelineBuilder.build(m_computePipelineLayout);
+
+	/////////////////////////////////////////////
+	// Raytracing
+	/////////////////////////////////////////////
 
 	// uniform buffer
 	m_raytracingUniformBuffer = new UniformBuffer<RayParams>(m_device);
@@ -459,6 +540,7 @@ bool Application::init() {
 
 	if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
 		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_renderFinishedSemaphore) != VK_SUCCESS ||
+		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_lightingFinishedSemaphore) != VK_SUCCESS ||
 		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_raytracingFinishedSemaphore) != VK_SUCCESS ||
 		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_blitFinishedSemaphore) != VK_SUCCESS) {
 
@@ -467,6 +549,7 @@ bool Application::init() {
 	}
 	
 	if (vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_blitFence) != VK_SUCCESS ||
+		vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_lightingFence) != VK_SUCCESS ||
 		vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_raytracingFence) != VK_SUCCESS ||
 		vkCreateFence(m_device->handle(), &fenceInfo, nullptr, &m_inFlightFence) != VK_SUCCESS) {
 
@@ -491,6 +574,7 @@ void Application::drawFrame() {
 	vkWaitForFences(m_device->handle(), 1, &m_inFlightFence, VK_TRUE, UINT64_MAX);
 	vkResetFences(m_device->handle(), 1, &m_blitFence);
 	vkResetFences(m_device->handle(), 1, &m_raytracingFence);
+	vkResetFences(m_device->handle(), 1, &m_lightingFence);
 	vkResetFences(m_device->handle(), 1, &m_inFlightFence);
 
 	if (m_framebufferResized) {
@@ -516,7 +600,7 @@ void Application::drawFrame() {
 	// submit rendering
 	// 1. wait for the image to be available
 	// 2. signal the render finished semaphore
-	// 3. notify the raytracing fence
+	// 3. notify the lighting fence
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -534,18 +618,42 @@ void Application::drawFrame() {
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	auto pQueue = m_device->getQueue(QueueType::eGraphics);
-	if (!pQueue->submit(&submitInfo, m_raytracingFence))
+	if (!pQueue->submit(&submitInfo, m_lightingFence))
+		return;
+
+	// submit lighting compute
+	// 1. wait for the render finished semaphore
+	// 2. signal the render finished semaphore
+	// 3. notify the raytracing fence
+	VkSubmitInfo computeSubmitInfo{};
+	computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	VkSemaphore computeWaitSemaphores[] = { m_renderFinishedSemaphore };
+	VkPipelineStageFlags computeWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	computeSubmitInfo.waitSemaphoreCount = 1;
+	computeSubmitInfo.pWaitSemaphores = computeWaitSemaphores;
+	computeSubmitInfo.pWaitDstStageMask = computeWaitStages;
+
+	computeSubmitInfo.commandBufferCount = 1;
+	computeSubmitInfo.pCommandBuffers = &m_computeCommandBuffer;
+
+	VkSemaphore computeSignalSemaphores[] = { m_lightingFinishedSemaphore };
+	computeSubmitInfo.signalSemaphoreCount = 1;
+	computeSubmitInfo.pSignalSemaphores = computeSignalSemaphores;
+
+	auto pComputeQueue = m_device->getQueue(QueueType::eCompute);
+	if (!pComputeQueue->submit(&computeSubmitInfo, m_raytracingFence))
 		return;
 
 	// submit raytracing
-	// 1. wait for the render finished semaphore
+	// 1. wait for the lighting finished semaphore
 	// 2. signal the raytracing finished semaphore
 	// 3. notify the blit fence
 	VkSubmitInfo raytracingSubmitInfo{};
 	raytracingSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	VkSemaphore raytracingWaitSemaphores[] = { m_renderFinishedSemaphore };
-	VkPipelineStageFlags raytracingWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	VkSemaphore raytracingWaitSemaphores[] = { m_lightingFinishedSemaphore };
+	VkPipelineStageFlags raytracingWaitStages[] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
 	raytracingSubmitInfo.waitSemaphoreCount = 1;
 	raytracingSubmitInfo.pWaitSemaphores = raytracingWaitSemaphores;
 	raytracingSubmitInfo.pWaitDstStageMask = raytracingWaitStages;
@@ -718,6 +826,50 @@ void Application::recordRenderCommands() {
 	pQueue->endCommands(m_renderCommandBuffer);
 }
 
+void Application::recordComputeCommands() {
+	Queue* pQueue = m_device->getQueue(QueueType::eCompute);
+	m_computeCommandBuffer = pQueue->beginCommands();
+
+	vkCmdBindPipeline(m_computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
+	vkCmdBindDescriptorSets(m_computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipelineLayout, 0, 1, &m_computeDescriptorSet, 0, nullptr);
+
+	vkCmdDispatch(m_computeCommandBuffer, m_width, m_height, 1);
+
+	pQueue->endCommands(m_computeCommandBuffer);
+}
+
+void Application::recordRaytracingCommands() {
+	Queue* pQueue = m_device->getQueue(QueueType::eGraphics);
+	m_raytracingCommandBuffer = pQueue->beginCommands();
+
+	// transition the raytracing output buffer from copy to storage
+	TransitionImageBarrierBuilder<1> transition;
+	transition
+		.setImage(0, m_raytracingImage->handle())
+		.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL)
+		.setAccessMasks(0, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
+		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+		.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+	vkCmdBindPipeline(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipeline);
+	vkCmdBindDescriptorSets(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipelineLayout, 0, 1, &m_raytracingDescriptorSet, 0, nullptr);
+
+	m_device->getExtensions().vkCmdTraceRaysNV(m_raytracingCommandBuffer,
+		m_shaderBindingTables.rgenShaderBindingTable.buffer, 0, // offset in the shader binding table for rgen
+		m_shaderBindingTables.missShaderBindingTable.buffer, 0, m_shaderBindingTables.missShaderBindingTable.groupSize, // offset and stride for miss
+		m_shaderBindingTables.chitShaderBindingTable.buffer, 0, m_shaderBindingTables.chitShaderBindingTable.groupSize, // offset and stride for chit
+		nullptr, 0, 0,
+		m_width, m_height, 1);
+	
+	// transition the raytracing image to be blitted
+	transition
+		.setLayouts(0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+		.setAccessMasks(0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT)
+		.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+	pQueue->endCommands(m_raytracingCommandBuffer);
+}
+
 void Application::recordBlitCommands() {
 	auto pQueue = m_device->getQueue(QueueType::eGraphics);
 	m_blitCommandBuffers.resize(m_device->getSwapChainImages().size());
@@ -766,38 +918,6 @@ void Application::recordBlitCommands() {
 
 		pQueue->endCommands(blitCommandBuffer);
 	}
-}
-
-void Application::recordRaytracingCommands() {
-	Queue* pQueue = m_device->getQueue(QueueType::eGraphics);
-	m_raytracingCommandBuffer = pQueue->beginCommands();
-
-	// transition the raytracing output buffer from copy to storage
-	TransitionImageBarrierBuilder<1> transition;
-	transition
-		.setImage(0, m_raytracingImage->handle())
-		.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL)
-		.setAccessMasks(0, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
-		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
-		.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-
-	vkCmdBindPipeline(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipeline);
-	vkCmdBindDescriptorSets(m_raytracingCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_raytracingPipelineLayout, 0, 1, &m_raytracingDescriptorSet, 0, nullptr);
-
-	m_device->getExtensions().vkCmdTraceRaysNV(m_raytracingCommandBuffer,
-		m_shaderBindingTables.rgenShaderBindingTable.buffer, 0, // offset in the shader binding table for rgen
-		m_shaderBindingTables.missShaderBindingTable.buffer, 0, m_shaderBindingTables.missShaderBindingTable.groupSize, // offset and stride for miss
-		m_shaderBindingTables.chitShaderBindingTable.buffer, 0, m_shaderBindingTables.chitShaderBindingTable.groupSize, // offset and stride for chit
-		nullptr, 0, 0,
-		m_width, m_height, 1);
-	
-	// transition the raytracing image to be blitted
-	transition
-		.setLayouts(0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
-		.setAccessMasks(0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT)
-		.execute(m_raytracingCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-
-	pQueue->endCommands(m_raytracingCommandBuffer);
 }
 
 }

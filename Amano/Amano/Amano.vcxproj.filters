@@ -99,6 +99,9 @@
     <ClCompile Include="ImGuiSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Builder\ComputePipelineBuilder.cpp">
+      <Filter>Source Files\Builder</Filter>
+    </ClCompile>
     <ClCompile Include="Builder\GraphicsPipelineBuilder.cpp">
       <Filter>Source Files\Builder</Filter>
     </ClCompile>
@@ -196,6 +199,9 @@
     </ClInclude>
     <ClInclude Include="ImGuiSystem.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Builder\ComputePipelineBuilder.h">
+      <Filter>Header Files\Builder</Filter>
     </ClInclude>
     <ClInclude Include="Builder\GraphicsPipelineBuilder.h">
       <Filter>Header Files\Builder</Filter>

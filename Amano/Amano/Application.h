@@ -73,8 +73,9 @@ private:
 
 	// multiple methods to record the commands once
 	void recordRenderCommands();
-	void recordBlitCommands();
+	void recordComputeCommands();
 	void recordRaytracingCommands();
+	void recordBlitCommands();
 
 private:
 	GLFWwindow* m_window;
@@ -116,14 +117,24 @@ private:
 	VkDescriptorSet m_descriptorSet;
 	VkSemaphore m_imageAvailableSemaphore;
 	VkSemaphore m_renderFinishedSemaphore;
+	VkSemaphore m_lightingFinishedSemaphore;
 	VkSemaphore m_raytracingFinishedSemaphore;
 	VkSemaphore m_blitFinishedSemaphore;
 	VkFence m_inFlightFence;
+	VkFence m_lightingFence;
 	VkFence m_raytracingFence;
 	VkFence m_blitFence;
 	// need more for double buffering
 	VkCommandBuffer m_renderCommandBuffer;
 	std::vector<VkCommandBuffer> m_blitCommandBuffers;
+
+	// for compute shader
+	VkDescriptorSetLayout m_computeDescriptorSetLayout;
+	VkPipelineLayout m_computePipelineLayout;
+	VkPipeline m_computePipeline;
+	VkDescriptorSet m_computeDescriptorSet;
+	Image* m_computeImage;
+	VkCommandBuffer m_computeCommandBuffer;
 
 	// for raytracing
 	Image* m_raytracingImage;

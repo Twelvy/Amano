@@ -100,7 +100,7 @@ struct QueueFamilyIndices {
 	std::optional<uint32_t> presentFamily;
 
 	bool isComplete() {
-		return graphicsFamily.has_value() && presentFamily.has_value();//&& computeFamily.has_value() && transferFamily.has_value();
+		return graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value();//&& transferFamily.has_value();
 	}
 };
 
@@ -659,7 +659,8 @@ bool Device::createQueues() {
 	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_physicalDevice, m_surface);
 
 	m_queues[static_cast<uint32_t>(QueueType::eGraphics)] = new Queue(this, queueFamilyIndices.graphicsFamily.value());
-	// TODO: compute and transfer
+	m_queues[static_cast<uint32_t>(QueueType::eCompute)] = new Queue(this, queueFamilyIndices.graphicsFamily.value());
+	// TODO: transfer
 	m_queues[static_cast<uint32_t>(QueueType::ePresent)] = new Queue(this, queueFamilyIndices.presentFamily.value());
 
 	return true;
@@ -706,8 +707,8 @@ bool Device::createSwapChain(GLFWwindow* window) {
 	createInfo.imageColorSpace = surfaceFormat.colorSpace;
 	createInfo.imageExtent = extent;
 	createInfo.imageArrayLayers = 1;
-	//createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; //VK_IMAGE_USAGE_TRANSFER_DST_BIT for render to texture then copy
-	createInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; //render to texture then copy
+	//createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;  //VK_IMAGE_USAGE_TRANSFER_DST_BIT for render to texture then copy
+	createInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;  // render to texture, copy and shader access
 
 	QueueFamilyIndices indices = findQueueFamilies(m_physicalDevice, m_surface);
 	uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
