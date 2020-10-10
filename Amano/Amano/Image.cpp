@@ -36,7 +36,7 @@ Image::~Image() {
 	vkDestroyImage(m_device->handle(), m_image, nullptr);
 }
 
-bool Image::create(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
+bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
 	m_width = width;
 	m_height = height;
 	m_mipLevels = mipLevels;
@@ -75,7 +75,7 @@ bool Image::create(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat
 	return true;
 }
 
-bool Image::create(const std::string& filename, Queue& queue) {
+bool Image::create2D(const std::string& filename, Queue& queue) {
 	int texWidth, texHeight, texChannels;
 	stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
@@ -108,7 +108,7 @@ bool Image::create(const std::string& filename, Queue& queue) {
 
 	m_format = VK_FORMAT_R8G8B8A8_SRGB;
 
-	if (!create(
+	if (!create2D(
 		static_cast<uint32_t>(texWidth),
 		static_cast<uint32_t>(texHeight),
 		m_mipLevels,

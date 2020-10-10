@@ -23,8 +23,8 @@ public:
 	VkImage handle() { return m_image; }
 	VkImageView viewHandle() { return m_imageView; }
 
-	bool create(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
-	bool create(const std::string& filename, Queue& queue);
+	bool create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
+	bool create2D(const std::string& filename, Queue& queue);
 	bool createView(VkImageAspectFlags aspectFlags);
 
 	void transitionLayout(Queue& queue, VkImageLayout oldLayout, VkImageLayout newLayout);

@@ -224,7 +224,7 @@ void Application::createSizeDependentObjects() {
 
 		// create the depth image/buffer
 		m_depthImage = new Image(m_device);
-		m_depthImage->create(
+		m_depthImage->create2D(
 			m_width,
 			m_height,
 			1,
@@ -237,7 +237,7 @@ void Application::createSizeDependentObjects() {
 
 		// create the images for the GBuffer
 		m_GBuffer.colorImage = new Image(m_device);
-		m_GBuffer.colorImage->create(
+		m_GBuffer.colorImage->create2D(
 			m_width,
 			m_height,
 			1,
@@ -248,7 +248,7 @@ void Application::createSizeDependentObjects() {
 		m_GBuffer.colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 		m_GBuffer.normalImage = new Image(m_device);
-		m_GBuffer.normalImage->create(
+		m_GBuffer.normalImage->create2D(
 			m_width,
 			m_height,
 			1,
@@ -278,7 +278,7 @@ void Application::createSizeDependentObjects() {
 		/////////////////////////////////////////////
 		
 		m_computeImage = new Image(m_device);
-		m_computeImage->create(
+		m_computeImage->create2D(
 			m_width,
 			m_height,
 			1,
@@ -306,7 +306,7 @@ void Application::createSizeDependentObjects() {
 
 		// create raytracing image
 		m_raytracingImage = new Image(m_device);
-		m_raytracingImage->create(
+		m_raytracingImage->create2D(
 			m_width,
 			m_height,
 			1,
@@ -433,7 +433,7 @@ bool Application::init() {
 
 	// load the texture of the model
 	m_modelTexture = new Image(m_device);
-	m_modelTexture->create("assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
+	m_modelTexture->create2D("assets/textures/viking_room.png", *m_device->getQueue(QueueType::eGraphics));
 	m_modelTexture->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// create a sampler for the texture
