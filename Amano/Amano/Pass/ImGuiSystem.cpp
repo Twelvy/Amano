@@ -1,4 +1,5 @@
 #include "ImGuiSystem.h"
+#include"../Builder/FramebufferBuilder.h"
 #include <examples/imgui_impl_vulkan.h>
 
 #include <iostream>
@@ -24,6 +25,7 @@ ImGuiSystem::ImGuiSystem(Device* device)
 	, m_descriptorPool{ VK_NULL_HANDLE }
     , m_renderPass{ VK_NULL_HANDLE }
     , m_commandBuffer{ VK_NULL_HANDLE }
+    , m_framebuffers()
     , m_mouseJustPressed{}
 {
     for (int i = 0; i < ImGuiMouseButton_COUNT; ++i) {
@@ -34,6 +36,7 @@ ImGuiSystem::ImGuiSystem(Device* device)
 ImGuiSystem::~ImGuiSystem() {
     ImGui_ImplVulkan_Shutdown();
     ImGui::DestroyContext();
+    cleanOnRenderTargetResized();
     vkDestroyRenderPass(m_device->handle(), m_renderPass, nullptr);
 	m_device->releaseDescriptorPool(m_descriptorPool);
     m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_commandBuffer);
@@ -127,7 +130,7 @@ void ImGuiSystem::startFrame() {
     ImGui::NewFrame();
 }
 
-void ImGuiSystem::endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t height, VkFence fence) {
+void ImGuiSystem::endFrame(uint32_t imageIndex, uint32_t width, uint32_t height, VkFence fence) {
     // setup the buffers
     ImGui::Render();
 
@@ -140,7 +143,7 @@ void ImGuiSystem::endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t h
     VkRenderPassBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     info.renderPass = m_renderPass;
-    info.framebuffer = framebuffer;
+    info.framebuffer = m_framebuffers[imageIndex];
     info.renderArea.extent.width = width;
     info.renderArea.extent.height = height;
     info.clearValueCount = 0; // no clear for now
@@ -175,6 +178,23 @@ void ImGuiSystem::endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t h
 
     auto pQueue = m_device->getQueue(QueueType::eGraphics);
     pQueue->submit(&submitInfo, fence);
+}
+
+void ImGuiSystem::cleanOnRenderTargetResized() {
+    for (auto finalFb : m_framebuffers)
+        vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
+    m_framebuffers.clear();
+}
+
+void ImGuiSystem::recreateOnRenderTargetResized(uint32_t width, uint32_t height) {
+    m_framebuffers.reserve(m_device->getSwapChainImageViews().size());
+    for (auto swapchainImageView : m_device->getSwapChainImageViews())
+    {
+        FramebufferBuilder finalFramebufferBuilder;
+        finalFramebufferBuilder
+            .addAttachment(swapchainImageView);
+        m_framebuffers.push_back(finalFramebufferBuilder.build(*m_device, m_renderPass, width, height));
+    }
 }
 
 bool ImGuiSystem::createRenderPass() {

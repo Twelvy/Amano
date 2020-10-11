@@ -48,7 +48,6 @@ Application::Application()
 	, m_inputSystem{ nullptr }
 	, m_guiSystem{ nullptr }
 	, m_debugOrbitCamera{ nullptr }
-	, m_finalFramebuffers()
 	// necessary information to display the model
 	, m_mesh{ nullptr }
 	, m_modelTexture{ nullptr }
@@ -153,29 +152,15 @@ void Application::createSizeDependentObjects() {
 		// from here, this is a test application
 		/////////////////////////////////////////////
 
-		// create the final framebuffers
-		m_finalFramebuffers.reserve(m_device->getSwapChainImageViews().size());
-		for (auto swapchainImageView : m_device->getSwapChainImageViews())
-		{
-			FramebufferBuilder finalFramebufferBuilder;
-			finalFramebufferBuilder
-				.addAttachment(swapchainImageView);
-			m_finalFramebuffers.push_back(finalFramebufferBuilder.build(*m_device, m_guiSystem->renderPass(), m_width, m_height));
-		}
-
-		// record the commands that will be executed, rendering and blitting
 		m_gBufferPass->recreateOnRenderTargetResized(m_width, m_height, m_mesh, m_modelTexture);
 		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->albedoImage(), m_gBufferPass->normalImage(), m_gBufferPass->depthImage());
 		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->depthImage(), m_gBufferPass->normalImage(), m_deferredLightingPass->outputImage());
 		m_blitToSwapChainPass->recreateOnRenderTargetResized(m_width, m_height, m_raytracingPass->outputImage());
+		m_guiSystem->recreateOnRenderTargetResized(m_width, m_height);
 	}
 }
 
 void Application::cleanSizedependentObjects() {
-	for (auto finalFb : m_finalFramebuffers)
-		vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
-	m_finalFramebuffers.clear();
-
 	if (m_gBufferPass != nullptr)
 		m_gBufferPass->cleanOnRenderTargetResized();
 	if (m_deferredLightingPass != nullptr)
@@ -184,6 +169,8 @@ void Application::cleanSizedependentObjects() {
 		m_raytracingPass->cleanOnRenderTargetResized();
 	if (m_blitToSwapChainPass != nullptr)
 		m_blitToSwapChainPass->cleanOnRenderTargetResized();
+	if (m_guiSystem != nullptr)
+		m_guiSystem->cleanOnRenderTargetResized();
 }
 
 bool Application::init() {
@@ -355,7 +342,7 @@ void Application::drawUI(uint32_t imageIndex) {
 	ImGui::DragFloat3("position", &m_lightPosition[0], 0.01f, 1.0f, 1.0f);
 	ImGui::End();
 
-	m_guiSystem->endFrame(m_finalFramebuffers[imageIndex], m_width, m_height, m_inFlightFence);
+	m_guiSystem->endFrame(imageIndex, m_width, m_height, m_inFlightFence);
 }
 
 void Application::updateUniformBuffers() {

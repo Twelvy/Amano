@@ -67,7 +67,6 @@ private:
 	InputSystem* m_inputSystem;
 	ImGuiSystem* m_guiSystem;
 	DebugOrbitCamera* m_debugOrbitCamera;
-	std::vector<VkFramebuffer> m_finalFramebuffers;
 
 	// the information for the sample is here
 	// All of this should be wrapped into proper classes for easy access

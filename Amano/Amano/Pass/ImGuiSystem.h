@@ -27,7 +27,10 @@ public:
 	void startFrame();
 
 	// Ends the recording of the UI and submits the rendering command
-	void endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t height, VkFence fence);
+	void endFrame(uint32_t imageIndex, uint32_t width, uint32_t height, VkFence fence);
+
+	void cleanOnRenderTargetResized();
+	void recreateOnRenderTargetResized(uint32_t width, uint32_t height);
 
 private:
 	bool createRenderPass();
@@ -38,6 +41,7 @@ private:
 	VkDescriptorPool m_descriptorPool;
 	VkRenderPass m_renderPass;
 	VkCommandBuffer m_commandBuffer;
+	std::vector<VkFramebuffer> m_framebuffers;
 	bool m_mouseJustPressed[ImGuiMouseButton_COUNT];
 };
 
