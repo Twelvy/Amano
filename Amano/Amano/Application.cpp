@@ -270,8 +270,8 @@ void Application::createSizeDependentObjects() {
 		recordRenderCommands();
 		recordBlitCommands();
 
-		m_deferredLightingPass->onRenderTargetResized(m_width, m_height, m_GBuffer.colorImage, m_GBuffer.normalImage, m_depthImage);
-		m_raytracingPass->onRenderTargetResized(m_width, m_height, m_finalImage, m_depthImage, m_GBuffer.normalImage, m_deferredLightingPass->outputImage());
+		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_GBuffer.colorImage, m_GBuffer.normalImage, m_depthImage);
+		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_finalImage, m_depthImage, m_GBuffer.normalImage, m_deferredLightingPass->outputImage());
 	}
 }
 
@@ -298,6 +298,11 @@ void Application::cleanSizedependentObjects() {
 	for (auto finalFb : m_finalFramebuffers)
 		vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
 	m_finalFramebuffers.clear();
+
+	if (m_deferredLightingPass != nullptr)
+		m_deferredLightingPass->cleanOnRenderTargetResized();
+	if (m_raytracingPass != nullptr)
+		m_raytracingPass->cleanOnRenderTargetResized();
 }
 
 bool Application::init() {
@@ -318,7 +323,6 @@ bool Application::init() {
 	/////////////////////////////////////////////
 	// from here, this is a test application
 	/////////////////////////////////////////////
-
 
 	// create the sync objects
 	VkSemaphoreCreateInfo semaphoreInfo{};

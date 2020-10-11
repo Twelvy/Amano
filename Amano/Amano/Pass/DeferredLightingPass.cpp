@@ -86,10 +86,13 @@ bool DeferredLightingPass::init() {
 	return true;
 }
 
-void DeferredLightingPass::onRenderTargetResized(uint32_t width, uint32_t height, Image* albedoImage, Image* normalImage, Image* depthImage) {
+void DeferredLightingPass::cleanOnRenderTargetResized() {
 	destroyDescriptorSet();
+	destroyCommandBuffer();
 	destroyOutputImage();
+}
 
+void DeferredLightingPass::recreateOnRenderTargetResized(uint32_t width, uint32_t height, Image* albedoImage, Image* normalImage, Image* depthImage) {
 	createOutputImage(width, height);
 	createDescriptorSet(albedoImage, normalImage, depthImage);
 	recordCommands(width, height);
@@ -198,8 +201,10 @@ void DeferredLightingPass::destroyDescriptorSet() {
 }
 
 void DeferredLightingPass::destroyCommandBuffer() {
-	if (m_commandBuffer != VK_NULL_HANDLE)
+	if (m_commandBuffer != VK_NULL_HANDLE) {
 		m_device->getQueue(QueueType::eCompute)->freeCommandBuffer(m_commandBuffer);
+		m_commandBuffer = VK_NULL_HANDLE;
+	}
 }
 
 }

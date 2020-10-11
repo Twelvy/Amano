@@ -29,7 +29,8 @@ public:
 
 	void recordCommands(uint32_t width, uint32_t height, Image* finalImage, Image* colorImage);
 
-	void onRenderTargetResized(uint32_t width, uint32_t height, Image* finalImage, Image* depthImage, Image* normalImage, Image* colorImage);
+	void cleanOnRenderTargetResized();
+	void recreateOnRenderTargetResized(uint32_t width, uint32_t height, Image* finalImage, Image* depthImage, Image* normalImage, Image* colorImage);
 	
 	void updateRayUniformBuffer(RayParams& ubo);
 	void updateLightUniformBuffer(LightInformation& ubo);

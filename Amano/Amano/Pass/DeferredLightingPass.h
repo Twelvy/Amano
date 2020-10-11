@@ -28,7 +28,8 @@ public:
 	bool init();
 	void recordCommands(uint32_t width, uint32_t height);
 
-	void onRenderTargetResized(uint32_t width, uint32_t height, Image* albedoImage, Image* normalImage, Image* depthImage);
+	void cleanOnRenderTargetResized();
+	void recreateOnRenderTargetResized(uint32_t width, uint32_t height, Image* albedoImage, Image* normalImage, Image* depthImage);
 
 	void updateUniformBuffer(RayParams& ubo);
 	void updateLightUniformBuffer(LightInformation& ubo);

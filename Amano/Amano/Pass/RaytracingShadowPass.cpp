@@ -147,8 +147,12 @@ void RaytracingShadowPass::recordCommands(uint32_t width, uint32_t height, Image
 	pQueue->endCommands(m_commandBuffer);
 }
 
-void RaytracingShadowPass::onRenderTargetResized(uint32_t width, uint32_t height, Image* finalImage, Image* depthImage, Image* normalImage, Image* colorImage) {
+void RaytracingShadowPass::cleanOnRenderTargetResized() {
 	destroyDescriptorSet();
+	destroyCommandBuffer();
+}
+
+void RaytracingShadowPass::recreateOnRenderTargetResized(uint32_t width, uint32_t height, Image* finalImage, Image* depthImage, Image* normalImage, Image* colorImage) {
 	createDescriptorSet(finalImage, depthImage, normalImage, colorImage);
 	recordCommands(width, height, finalImage, colorImage);
 }
@@ -196,8 +200,10 @@ void RaytracingShadowPass::destroyDescriptorSet() {
 }
 
 void RaytracingShadowPass::destroyCommandBuffer() {
-	if (m_commandBuffer != VK_NULL_HANDLE)
+	if (m_commandBuffer != VK_NULL_HANDLE) {
 		m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_commandBuffer);
+		m_commandBuffer = VK_NULL_HANDLE;
+	}
 }
 
 }
