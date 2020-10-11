@@ -19,8 +19,8 @@ static void checkVkResult(VkResult err)
 namespace Amano {
 
 ImGuiSystem::ImGuiSystem(Device* device)
-	: InputReader()
-    , m_device{ device }
+	: Pass(device, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV)
+    , InputReader()
 	, m_descriptorPool{ VK_NULL_HANDLE }
     , m_renderPass{ VK_NULL_HANDLE }
     , m_mouseJustPressed{}

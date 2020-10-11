@@ -1,9 +1,4 @@
 #include "BlitToSwapChainPass.h"
-#include "../Builder/ComputePipelineBuilder.h"
-#include "../Builder/DescriptorSetBuilder.h"
-#include "../Builder/DescriptorSetLayoutBuilder.h"
-#include "../Builder/PipelineLayoutBuilder.h"
-#include "../Builder/SamplerBuilder.h"
 #include "../Builder/TransitionImageBarrierBuilder.h"
 
 namespace Amano {

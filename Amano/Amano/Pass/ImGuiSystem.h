@@ -1,14 +1,15 @@
 #pragma once
 
-#include "glfw.h"
-#include "Device.h"
-#include "InputSystem.h"
+#include "Pass.h"
+#include "../glfw.h"
+#include "../Device.h"
+#include "../InputSystem.h"
 
 #include <imgui.h>
 
 namespace Amano {
 
-class ImGuiSystem : public InputReader
+class ImGuiSystem : public Pass, public InputReader
 {
 public:
 	ImGuiSystem(Device* device);
@@ -34,7 +35,6 @@ private:
 	bool initImgui();
 
 private:
-	Device* m_device;
 	VkDescriptorPool m_descriptorPool;
 	VkRenderPass m_renderPass;
 	bool m_mouseJustPressed[ImGuiMouseButton_COUNT];

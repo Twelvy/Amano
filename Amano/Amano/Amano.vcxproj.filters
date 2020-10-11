@@ -102,9 +102,6 @@
     <ClCompile Include="DebugOrbitCamera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ImGuiSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Builder\ComputePipelineBuilder.cpp">
       <Filter>Source Files\Builder</Filter>
     </ClCompile>
@@ -124,6 +121,9 @@
       <Filter>Source Files\Pass</Filter>
     </ClCompile>
     <ClCompile Include="Pass\BlitToSwapChainPass.cpp">
+      <Filter>Source Files\Pass</Filter>
+    </ClCompile>
+    <ClCompile Include="Pass\ImGuiSystem.cpp">
       <Filter>Source Files\Pass</Filter>
     </ClCompile>
   </ItemGroup>
@@ -218,9 +218,6 @@
     <ClInclude Include="DebugOrbitCamera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ImGuiSystem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Builder\ComputePipelineBuilder.h">
       <Filter>Header Files\Builder</Filter>
     </ClInclude>
@@ -243,6 +240,9 @@
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
     <ClInclude Include="Pass\BlitToSwapChainPass.h">
+      <Filter>Header Files\Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="Pass\ImGuiSystem.h">
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
   </ItemGroup>

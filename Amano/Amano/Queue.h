@@ -22,7 +22,7 @@ public:
 	// There is no need to call freeCommandBuffer afterwards
 	VkCommandBuffer beginSingleTimeCommands();
 
-	// Ends and submits the command buffer.
+	// Ends and submits the command buffer. Waits for them to finish
 	// this call is blocking until the command is executed.
 	// After this call, the passed command buffer isn't usable anymore
 	// There is no need to call freeCommandBuffer afterwards

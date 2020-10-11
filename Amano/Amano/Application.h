@@ -5,7 +5,6 @@
 #include "DebugOrbitCamera.h"
 #include "Device.h"
 #include "Image.h"
-#include "ImGuiSystem.h"
 #include "InputSystem.h"
 #include "Mesh.h"
 #include "Ubo.h"
@@ -15,6 +14,7 @@
 #include "Pass/BlitToSwapChainPass.h"
 #include "Pass/DeferredLightingPass.h"
 #include "Pass/GBufferPass.h"
+#include "Pass/ImGuiSystem.h"
 #include "Pass/RaytracingShadowPass.h"
 
 namespace Amano {
