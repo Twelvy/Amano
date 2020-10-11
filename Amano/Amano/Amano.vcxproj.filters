@@ -120,6 +120,9 @@
     <ClCompile Include="Pass\Pass.cpp">
       <Filter>Source Files\Pass</Filter>
     </ClCompile>
+    <ClCompile Include="Pass\GBufferPass.cpp">
+      <Filter>Source Files\Pass</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -231,6 +234,9 @@
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
     <ClInclude Include="Pass\Pass.h">
+      <Filter>Header Files\Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="Pass\GBufferPass.h">
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
   </ItemGroup>

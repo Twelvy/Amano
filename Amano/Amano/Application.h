@@ -13,6 +13,7 @@
 #include "Builder/RaytracingAccelerationStructureBuilder.h"
 #include "Builder/ShaderBindingTableBuilder.h"
 #include "Pass/DeferredLightingPass.h"
+#include "Pass/GBufferPass.h"
 #include "Pass/RaytracingShadowPass.h"
 
 namespace Amano {
@@ -40,23 +41,15 @@ public:
 private:
 	void initWindow();
 
-	struct Formats {
-		VkFormat depthFormat;
-		VkFormat colorFormat;
-		VkFormat normalFormat;
-	};
-	Formats getFormats();
-
 	void recreateSwapChain();
 	void createSizeDependentObjects();
 	void cleanSizedependentObjects();
 
 	void drawFrame();
 	void drawUI(uint32_t imageIndex);
-	void updateUniformBuffer();
+	void updateUniformBuffers();
 
 	// multiple methods to record the commands once
-	void recordRenderCommands();
 	void recordBlitCommands();
 
 private:
@@ -80,30 +73,15 @@ private:
 
 	// the information for the sample is here
 	// All of this should be wrapped into proper classes for easy access
-	Image* m_depthImage;
-	VkSampler m_nearestSampler;
-	struct {
-		Image* albedoImage = nullptr;
-		Image* normalImage = nullptr;
-	} m_GBuffer;
-	VkRenderPass m_renderPass;
-	VkFramebuffer m_framebuffer;
-	VkDescriptorSetLayout m_descriptorSetLayout;
-	VkPipelineLayout m_pipelineLayout;
-	VkPipeline m_pipeline;
-	UniformBuffer<PerFrameUniformBufferObject>* m_uniformBuffer;
-	UniformBuffer<LightInformation>* m_lightUniformBuffer;
 	Mesh* m_mesh;
 	Image* m_modelTexture;
-	VkSampler m_sampler;
-	VkDescriptorSet m_descriptorSet;
 	VkSemaphore m_imageAvailableSemaphore;
-	VkSemaphore m_renderFinishedSemaphore;
 	VkSemaphore m_blitFinishedSemaphore;
 	VkFence m_inFlightFence;
 	// need more for double buffering
-	VkCommandBuffer m_renderCommandBuffer;
 	std::vector<VkCommandBuffer> m_blitCommandBuffers;
+
+	GBufferPass* m_gBufferPass;
 
 	// for lighting shader
 	DeferredLightingPass* m_deferredLightingPass;

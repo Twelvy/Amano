@@ -1,6 +1,7 @@
 #include "Image.h"
 #include "Queue.h"
 
+#include "Builder/SamplerBuilder.h"
 #include "Builder/TransitionImageBarrierBuilder.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -12,6 +13,15 @@ namespace {
 
 bool hasStencilComponent(VkFormat format) {
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+bool isDepthFormat(VkFormat format) {
+	return format == VK_FORMAT_D16_UNORM
+		|| format == VK_FORMAT_X8_D24_UNORM_PACK32
+		|| format == VK_FORMAT_D32_SFLOAT
+		|| format == VK_FORMAT_D16_UNORM_S8_UINT
+		|| format == VK_FORMAT_D24_UNORM_S8_UINT
+		|| format == VK_FORMAT_D32_SFLOAT_S8_UINT;
 }
 
 }
@@ -28,6 +38,7 @@ Image::Image(Device* device)
 	, m_image{ VK_NULL_HANDLE }
 	, m_imageMemory{ VK_NULL_HANDLE }
 	, m_imageView{ VK_NULL_HANDLE }
+	, m_imageSampler{ VK_NULL_HANDLE }
 {
 }
 
@@ -35,6 +46,7 @@ Image::~Image() {
 	m_device->freeDeviceMemory(m_imageMemory);
 	vkDestroyImageView(m_device->handle(), m_imageView, nullptr);
 	vkDestroyImage(m_device->handle(), m_image, nullptr);
+	vkDestroySampler(m_device->handle(), m_imageSampler, nullptr);
 }
 
 bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
@@ -298,6 +310,16 @@ bool Image::createView(VkImageAspectFlags aspectFlags) {
 	return true;
 }
 
+bool Image::createSampler(VkFilter magFilter, VkFilter minFilter) {
+	SamplerBuilder samplerBuilder;
+	samplerBuilder
+		.setFilter(magFilter, minFilter)
+		.setMaxLoad((float)m_mipLevels);
+	m_imageSampler = samplerBuilder.build(*m_device);
+
+	return true;
+}
+
 void Image::transitionLayout(Queue& queue, VkImageLayout oldLayout, VkImageLayout newLayout) {
 	transitionLayoutInternal(queue, 0, oldLayout, newLayout);
 }
@@ -312,7 +334,7 @@ void Image::transitionLayoutInternal(Queue& queue, uint32_t layer, VkImageLayout
 		.setLayer(0, layer)
 		.setLayouts(0, oldLayout, newLayout);
 
-	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+	if (isDepthFormat(m_format)) {
 		if (hasStencilComponent(m_format))
 			transition.setAspectMask(0, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 		else 

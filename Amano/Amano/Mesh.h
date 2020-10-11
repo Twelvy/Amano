@@ -20,10 +20,10 @@ public:
 	// Creates all the necessary buffers
 	bool create(const std::string& filename);
 
-	VkBuffer getVertexBuffer() { return m_vertexBuffer; }
-	VkBuffer getIndexBuffer() { return m_indexBuffer; }
-	uint32_t getVertexCount() { return static_cast<uint32_t>(m_vertices.size()); }
-	uint32_t getIndexCount() { return static_cast<uint32_t>(m_indices.size()); }
+	VkBuffer getVertexBuffer() const { return m_vertexBuffer; }
+	VkBuffer getIndexBuffer() const { return m_indexBuffer; }
+	uint32_t getVertexCount() const { return static_cast<uint32_t>(m_vertices.size()); }
+	uint32_t getIndexCount() const { return static_cast<uint32_t>(m_indices.size()); }
 
 private:
 	bool load(const std::string& filename);

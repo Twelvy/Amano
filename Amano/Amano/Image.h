@@ -29,6 +29,7 @@ public:
 	uint32_t getMipLevels() const { return m_mipLevels; }
 	VkImage handle() const { return m_image; }
 	VkImageView viewHandle() const { return m_imageView; }
+	VkSampler sampler() const { return m_imageSampler; }
 
 	bool create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
 	bool create2D(const std::string& filename, Queue& queue);
@@ -44,6 +45,7 @@ public:
 		Queue& queue);
 
 	bool createView(VkImageAspectFlags aspectFlags);
+	bool createSampler(VkFilter magFilter, VkFilter minFilter);
 
 	void transitionLayout(Queue& queue, VkImageLayout oldLayout, VkImageLayout newLayout);
 
@@ -61,6 +63,7 @@ private:
 	VkImage m_image;
 	VkDeviceMemory m_imageMemory;
 	VkImageView m_imageView;
+	VkSampler m_imageSampler;
 };
 
 }

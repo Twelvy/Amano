@@ -50,26 +50,13 @@ Application::Application()
 	, m_debugOrbitCamera{ nullptr }
 	, m_finalFramebuffers()
 	// necessary information to display the model
-	, m_depthImage{ nullptr }
-	, m_nearestSampler{VK_NULL_HANDLE }
-	, m_GBuffer{}
-	, m_renderPass{ VK_NULL_HANDLE }
-	, m_framebuffer{ VK_NULL_HANDLE }
-	, m_descriptorSetLayout{ VK_NULL_HANDLE }
-	, m_pipelineLayout{ VK_NULL_HANDLE }
-	, m_pipeline{ VK_NULL_HANDLE }
-	, m_uniformBuffer{ nullptr }
-	, m_lightUniformBuffer{ nullptr }
 	, m_mesh{ nullptr }
 	, m_modelTexture{ nullptr }
-	, m_sampler{ VK_NULL_HANDLE }
-	, m_descriptorSet{ VK_NULL_HANDLE }
 	, m_imageAvailableSemaphore{ VK_NULL_HANDLE }
-	, m_renderFinishedSemaphore{ VK_NULL_HANDLE }
 	, m_blitFinishedSemaphore{ VK_NULL_HANDLE }
 	, m_inFlightFence{ VK_NULL_HANDLE }
-	, m_renderCommandBuffer{ VK_NULL_HANDLE }
 	, m_blitCommandBuffers()
+	, m_gBufferPass{ nullptr }
 	// deferred lighting
 	, m_deferredLightingPass{ nullptr }
 	// raytracing
@@ -85,24 +72,15 @@ Application::~Application() {
 
 	delete m_raytracingPass;
 	delete m_deferredLightingPass;
+	delete m_gBufferPass;
 
 	vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphore, nullptr);
-	vkDestroySemaphore(m_device->handle(), m_renderFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_imageAvailableSemaphore, nullptr);
 	vkDestroyFence(m_device->handle(), m_inFlightFence, nullptr);
 
-	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_descriptorSet);
-	vkDestroySampler(m_device->handle(), m_sampler, nullptr);
-	vkDestroySampler(m_device->handle(), m_nearestSampler, nullptr);
 	delete m_modelTexture;
 	delete m_mesh;
-	delete m_uniformBuffer;
-	delete m_lightUniformBuffer;
-	vkDestroyPipeline(m_device->handle(), m_pipeline, nullptr);
-	vkDestroyPipelineLayout(m_device->handle(), m_pipelineLayout, nullptr);
-	vkDestroyDescriptorSetLayout(m_device->handle(), m_descriptorSetLayout, nullptr);
-	vkDestroyRenderPass(m_device->handle(), m_renderPass, nullptr);
-
+	
 	delete m_inputSystem;
 	delete m_debugOrbitCamera;
 	delete m_guiSystem;
@@ -146,18 +124,6 @@ void Application::initWindow() {
 	glfwSetScrollCallback(m_window, scrollCallback);
 }
 
-Application::Formats Application::getFormats() {
-	Formats formats;
-	formats.depthFormat = m_device->findSupportedFormat(
-		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
-	);
-	formats.colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
-	formats.normalFormat = VK_FORMAT_R16G16B16A16_SNORM;
-	return formats;
-}
-
 void Application::recreateSwapChain() {
 	if (m_device != nullptr) {
 		int width = 0, height = 0;
@@ -197,90 +163,26 @@ void Application::createSizeDependentObjects() {
 			m_finalFramebuffers.push_back(finalFramebufferBuilder.build(*m_device, m_guiSystem->renderPass(), m_width, m_height));
 		}
 
-		Formats formats = getFormats();
-
-		// create the depth image/buffer
-		m_depthImage = new Image(m_device);
-		m_depthImage->create2D(
-			m_width,
-			m_height,
-			1,
-			formats.depthFormat,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		m_depthImage->createView(VK_IMAGE_ASPECT_DEPTH_BIT);
-		m_depthImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-		// create the images for the GBuffer
-		m_GBuffer.albedoImage = new Image(m_device);
-		m_GBuffer.albedoImage->create2D(
-			m_width,
-			m_height,
-			1,
-			formats.colorFormat,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		m_GBuffer.albedoImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-
-		m_GBuffer.normalImage = new Image(m_device);
-		m_GBuffer.normalImage->create2D(
-			m_width,
-			m_height,
-			1,
-			formats.normalFormat,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		m_GBuffer.normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-
-		// create the framebuffer
-		FramebufferBuilder framebufferBuilder;
-		framebufferBuilder
-			.addAttachment(m_GBuffer.albedoImage->viewHandle())
-			.addAttachment(m_GBuffer.normalImage->viewHandle())
-			.addAttachment(m_depthImage->viewHandle());
-		m_framebuffer = framebufferBuilder.build(*m_device, m_renderPass, m_width, m_height);
-
-		// update the descriptor set
-		DescriptorSetBuilder descriptorSetBuilder(m_device, 2, m_descriptorSetLayout);
-		descriptorSetBuilder
-			.addUniformBuffer(m_uniformBuffer->getBuffer(), m_uniformBuffer->getSize(), 0)
-			.addImage(m_sampler, m_modelTexture->viewHandle(), 1);
-		m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
-
 		// record the commands that will be executed, rendering and blitting
-		recordRenderCommands();
-
-		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_GBuffer.albedoImage, m_GBuffer.normalImage, m_depthImage);
-		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_depthImage, m_GBuffer.normalImage, m_deferredLightingPass->outputImage());
+		m_gBufferPass->recreateOnRenderTargetResized(m_width, m_height, m_mesh, m_modelTexture);
+		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->albedoImage(), m_gBufferPass->normalImage(), m_gBufferPass->depthImage());
+		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->depthImage(), m_gBufferPass->normalImage(), m_deferredLightingPass->outputImage());
 
 		recordBlitCommands();
 	}
 }
 
 void Application::cleanSizedependentObjects() {
-	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
-	m_renderCommandBuffer = VK_NULL_HANDLE;
 	for (auto& cmd : m_blitCommandBuffers)
 		m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(cmd);
 	m_blitCommandBuffers.clear();
-
-	vkDestroyFramebuffer(m_device->handle(), m_framebuffer, nullptr);
-	m_framebuffer = VK_NULL_HANDLE;
-
-	delete m_GBuffer.normalImage;
-	m_GBuffer.normalImage = nullptr;
-	delete m_GBuffer.albedoImage;
-	m_GBuffer.albedoImage = nullptr;
-	delete m_depthImage;
-	m_depthImage = nullptr;
 
 	for (auto finalFb : m_finalFramebuffers)
 		vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
 	m_finalFramebuffers.clear();
 
+	if (m_gBufferPass != nullptr)
+		m_gBufferPass->cleanOnRenderTargetResized();
 	if (m_deferredLightingPass != nullptr)
 		m_deferredLightingPass->cleanOnRenderTargetResized();
 	if (m_raytracingPass != nullptr)
@@ -315,7 +217,6 @@ bool Application::init() {
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 	if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
-		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_renderFinishedSemaphore) != VK_SUCCESS ||
 		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_blitFinishedSemaphore) != VK_SUCCESS) {
 
 		std::cerr << "failed to create semaphores for a frame!" << std::endl;
@@ -327,44 +228,7 @@ bool Application::init() {
 		return false;
 	}
 
-	Formats formats = getFormats();
-
-	// create the render pass
-	RenderPassBuilder renderPassBuilder;
-	renderPassBuilder
-		.addColorAttachment(formats.colorFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) // attachment 0 for color
-		.addColorAttachment(formats.normalFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) // attachment 1 for normal
-		.addDepthAttachment(formats.depthFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) // attachment 2 for depth buffer
-		.addSubpass(VK_PIPELINE_BIND_POINT_GRAPHICS, { 0, 1 }, 2) // subpass 0
-		.addSubpassDependency(VK_SUBPASS_EXTERNAL, 0);
-	m_renderPass = renderPassBuilder.build(*m_device);
 	
-	// create layout for the next pipeline
-	DescriptorSetLayoutBuilder descriptorSetLayoutbuilder;
-	descriptorSetLayoutbuilder
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-	m_descriptorSetLayout = descriptorSetLayoutbuilder.build(*m_device);
-	
-	// create pipeline layout
-	PipelineLayoutBuilder pipelineLayoutBuilder;
-	pipelineLayoutBuilder.addDescriptorSetLayout(m_descriptorSetLayout);
-	m_pipelineLayout = pipelineLayoutBuilder.build(*m_device);
-
-	// create graphics pipeline
-	GraphicsPipelineBuilder pipelineBuilder(m_device);
-	pipelineBuilder
-		.addShader("compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)
-		.addShader("compiled_shaders/gbufferf.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
-		//.setViewport(0.0f, 0.0f, (float)m_width, (float)m_height, 0.0f, 1.0f)
-		//.setScissor(0, 0, m_width, m_height)
-		.setRasterizer(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-	m_pipeline = pipelineBuilder.build(m_pipelineLayout, m_renderPass, 0, 2, true);
-
-	// create the uniform buffer of the shader we are using
-	m_uniformBuffer = new UniformBuffer<PerFrameUniformBufferObject>(m_device);
-	m_lightUniformBuffer = new UniformBuffer<LightInformation>(m_device);
-
 	// load the model to display
 	m_mesh = new Mesh(m_device);
 	m_mesh->create("assets/models/sphere.obj");
@@ -373,24 +237,21 @@ bool Application::init() {
 	m_modelTexture = new Image(m_device);
 	m_modelTexture->create2D("assets/textures/white.png", *m_device->getQueue(QueueType::eGraphics));
 	m_modelTexture->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+	m_modelTexture->createSampler(VK_FILTER_LINEAR, VK_FILTER_LINEAR);
 
-	// create a sampler for the texture
-	SamplerBuilder samplerBuilder;
-	samplerBuilder.setMaxLoad((float)m_modelTexture->getMipLevels());
-	m_sampler = samplerBuilder.build(*m_device);
-
-	// create a sampler for the depth texture
-	SamplerBuilder depthSamplerBuilder;
-	depthSamplerBuilder
-		.setMaxLoad(1)
-		.setFilter(VK_FILTER_NEAREST, VK_FILTER_NEAREST);
-	m_nearestSampler = depthSamplerBuilder.build(*m_device);
+	/////////////////////////////////////////////
+	// GBuffer pass
+	/////////////////////////////////////////////
+	m_gBufferPass = new GBufferPass(m_device);
+	m_gBufferPass->addWaitSemaphore(m_imageAvailableSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT); // VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
+	if (!m_gBufferPass->init())
+		return false;
 
 	/////////////////////////////////////////////
 	// Deferred lighting
 	/////////////////////////////////////////////
 	m_deferredLightingPass = new DeferredLightingPass(m_device);
-	m_deferredLightingPass->addWaitSemaphore(m_renderFinishedSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	m_deferredLightingPass->addWaitSemaphore(m_gBufferPass->signalSemaphore(), m_gBufferPass->pipelineStage());
 	if (!m_deferredLightingPass->init())
 		return false;
 
@@ -445,30 +306,10 @@ void Application::drawFrame() {
 	}
 
 	// now that we know that the previous frame is finished, we can update the buffers
-	updateUniformBuffer();
+	updateUniformBuffers();
 
-	// submit rendering
-	// 1. wait for the image to be available
-	// 2. signal the render finished semaphore
-	// 3. notify the lighting fence
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-	VkSemaphore waitSemaphores[] = { m_imageAvailableSemaphore };
-	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = waitSemaphores;
-	submitInfo.pWaitDstStageMask = waitStages;
-
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &m_renderCommandBuffer;
-	
-	VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphore };
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = signalSemaphores;
-
-	auto pQueue = m_device->getQueue(QueueType::eGraphics);
-	if (!pQueue->submit(&submitInfo, VK_NULL_HANDLE))
+	// submit GBuffer
+	if (!m_gBufferPass->submit())
 		return;
 
 	// submit deferred lighting
@@ -497,6 +338,7 @@ void Application::drawFrame() {
 	blitSubmitInfo.signalSemaphoreCount = 1;
 	blitSubmitInfo.pSignalSemaphores = blitSignalSemaphores;
 
+	auto pQueue = m_device->getQueue(QueueType::eGraphics);
 	if (!pQueue->submit(&blitSubmitInfo, m_inFlightFence))
 		return;
 
@@ -531,7 +373,7 @@ void Application::drawUI(uint32_t imageIndex) {
 	m_guiSystem->endFrame(m_finalFramebuffers[imageIndex], m_width, m_height);
 }
 
-void Application::updateUniformBuffer() {
+void Application::updateUniformBuffers() {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
@@ -552,8 +394,6 @@ void Application::updateUniformBuffer() {
 	// TODO: fix this by implementing our own projection method
 	ubo.proj[1][1] *= -1;
 
-	m_uniformBuffer->update(ubo);
-
 	// update the raytracing shader uniform
 	RayParams rayUbo{};
 	rayUbo.viewInverse = glm::inverse(ubo.view);
@@ -563,7 +403,10 @@ void Application::updateUniformBuffer() {
 	// update the light position
 	LightInformation lightUbo;
 	lightUbo.lightPosition = m_lightPosition;
-	m_lightUniformBuffer->update(lightUbo);
+
+	if (m_gBufferPass != nullptr) {
+		m_gBufferPass->updateUniformBuffer(ubo);
+	}
 
 	if (m_deferredLightingPass != nullptr) {
 		m_deferredLightingPass->updateUniformBuffer(rayUbo);
@@ -574,78 +417,6 @@ void Application::updateUniformBuffer() {
 		m_raytracingPass->updateRayUniformBuffer(rayUbo);
 		m_raytracingPass->updateLightUniformBuffer(lightUbo);
 	}
-}
-
-void Application::recordRenderCommands() {
-	auto pQueue = m_device->getQueue(QueueType::eGraphics);
-	m_renderCommandBuffer = pQueue->beginCommands();
-
-	// transition images from shader sampler to render target
-	TransitionImageBarrierBuilder<3> transition;
-	for (uint32_t i = 0; i < transition.getCount(); ++i) {
-		transition
-			.setLayouts(i, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-			.setAccessMasks(i, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-			.setAspectMask(i, VK_IMAGE_ASPECT_COLOR_BIT);
-	}
-	transition
-		.setImage(0, m_GBuffer.albedoImage->handle())
-		.setImage(1, m_GBuffer.normalImage->handle())
-		.setImage(2, m_depthImage->handle())
-		.setLayouts(2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-		.setAccessMasks(2, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
-		.setAspectMask(2, VK_IMAGE_ASPECT_DEPTH_BIT)
-		.execute(m_renderCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-	
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = m_renderPass;
-	renderPassInfo.framebuffer = m_framebuffer;
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent.width = m_width;
-	renderPassInfo.renderArea.extent.height = m_height;
-
-	std::array<VkClearValue, 4> clearValues{};
-	clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-	clearValues[1].color = { 0.0f, 0.0f, 0.0f, 0.0f };
-	clearValues[2].color = { 1.0f, 0.0f, 0.0f, 0.0f };
-	clearValues[3].depthStencil = { 1.0f, 0 };
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassInfo.pClearValues = clearValues.data();
-
-	vkCmdBeginRenderPass(m_renderCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	vkCmdBindPipeline(m_renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-
-	VkViewport viewport;
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = static_cast<float>(m_width);
-	viewport.height = static_cast<float>(m_height);
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(m_renderCommandBuffer, 0, 1, &viewport);
-
-	VkRect2D scissor;
-	scissor.offset.x = 0;
-	scissor.offset.y = 0;
-	scissor.extent.width = m_width;
-	scissor.extent.height = m_height;
-	vkCmdSetScissor(m_renderCommandBuffer, 0, 1, &scissor);
-
-	VkBuffer vertexBuffers[] = { m_mesh->getVertexBuffer() };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(m_renderCommandBuffer, 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(m_renderCommandBuffer, m_mesh->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-	vkCmdBindDescriptorSets(m_renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
-
-	vkCmdDrawIndexed(m_renderCommandBuffer, m_mesh->getIndexCount(), 1, 0, 0, 0);
-
-	// the render pass will transition the framebuffer from render target to shader sample
-	vkCmdEndRenderPass(m_renderCommandBuffer);
-
-	pQueue->endCommands(m_renderCommandBuffer);
 }
 
 void Application::recordBlitCommands() {
