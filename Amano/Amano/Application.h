@@ -134,7 +134,6 @@ private:
 	VkCommandBuffer m_computeCommandBuffer;
 
 	// for raytracing
-	Image* m_raytracingImage;
 	UniformBuffer<RayParams>* m_raytracingUniformBuffer;
 	VkDescriptorSetLayout m_raytracingDescriptorSetLayout;
 	VkPipelineLayout m_raytracingPipelineLayout;
@@ -143,6 +142,9 @@ private:
 	AccelerationStructures m_accelerationStructures;
 	ShaderBindingTables m_shaderBindingTables;
 	VkCommandBuffer m_raytracingCommandBuffer;
+
+	// final image
+	Image* m_finalImage;
 
 	// light information
 	glm::vec3 m_lightPosition;

@@ -46,7 +46,6 @@ void main() {
         outColor = texture(environmentSampler, rayDir);
     }
     else {
-        
         vec4 albedo = texture(albedoSampler, uv);
         vec3 worldNormal = normalize(texture(worldNormalSampler, uv).xyz);
 
@@ -61,7 +60,7 @@ void main() {
 
         // sum everything
         outColor = (diffuseIntensity * albedo) + (specular * specularColor);
-        }
+    }
     // store
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     imageStore(outputImage, pixel, outColor);

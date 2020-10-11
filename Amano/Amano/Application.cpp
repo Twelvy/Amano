@@ -80,7 +80,6 @@ Application::Application()
 	, m_environmentImage{ nullptr }
 	, m_computeCommandBuffer{ VK_NULL_HANDLE }
 	// raytracing
-	, m_raytracingImage{ nullptr }
 	, m_raytracingUniformBuffer{ nullptr }
 	, m_raytracingDescriptorSetLayout{ VK_NULL_HANDLE }
 	, m_raytracingPipelineLayout{ VK_NULL_HANDLE }
@@ -89,6 +88,8 @@ Application::Application()
 	, m_accelerationStructures{}
 	, m_shaderBindingTables{}
 	, m_raytracingCommandBuffer{ VK_NULL_HANDLE }
+	// final image
+	, m_finalImage{ nullptr }
 	// light information
 	, m_lightPosition(1.0f, 1.0f, 1.0f)
 {
@@ -304,12 +305,10 @@ void Application::createSizeDependentObjects() {
 		m_computeDescriptorSet = computeDescriptorSetBuilder.buildAndUpdate();
 
 		/////////////////////////////////////////////
-		// raytracing
+		// final image
 		/////////////////////////////////////////////
-
-		// create raytracing image
-		m_raytracingImage = new Image(m_device);
-		m_raytracingImage->create2D(
+		m_finalImage = new Image(m_device);
+		m_finalImage->create2D(
 			m_width,
 			m_height,
 			1,
@@ -317,13 +316,17 @@ void Application::createSizeDependentObjects() {
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		m_raytracingImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+		m_finalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+
+		/////////////////////////////////////////////
+		// raytracing
+		/////////////////////////////////////////////
 
 		// update the descriptor set for raytracing
 		DescriptorSetBuilder raytracingDescriptorSetBuilder(m_device, 2, m_raytracingDescriptorSetLayout);
 		raytracingDescriptorSetBuilder
 			.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
-			.addStorageImage(m_raytracingImage->viewHandle(), 1)
+			.addStorageImage(m_finalImage->viewHandle(), 1)
 			.addUniformBuffer(m_raytracingUniformBuffer->getBuffer(), m_raytracingUniformBuffer->getSize(), 2)
 			.addImage(m_nearestSampler, m_depthImage->viewHandle(), 3)
 			.addImage(m_nearestSampler, m_GBuffer.normalImage->viewHandle(), 4)
@@ -342,8 +345,9 @@ void Application::createSizeDependentObjects() {
 void Application::cleanSizedependentObjects() {
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_raytracingDescriptorSet);
 	m_raytracingDescriptorSet = VK_NULL_HANDLE;
-	delete m_raytracingImage;
-	m_raytracingImage = nullptr;
+
+	delete m_finalImage;
+	m_finalImage = nullptr;
 
 	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_computeDescriptorSet);
 	m_computeDescriptorSet = VK_NULL_HANDLE;
@@ -859,7 +863,7 @@ void Application::recordRaytracingCommands() {
 	// transition the raytracing output buffer from copy to storage
 	TransitionImageBarrierBuilder<1> transition;
 	transition
-		.setImage(0, m_raytracingImage->handle())
+		.setImage(0, m_finalImage->handle())
 		.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL)
 		.setAccessMasks(0, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
 		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
@@ -928,7 +932,7 @@ void Application::recordBlitCommands() {
 			//m_GBuffer.colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_GBuffer.depthImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			m_raytracingImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_finalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
 			VK_FILTER_LINEAR);
