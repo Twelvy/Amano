@@ -30,7 +30,7 @@ public:
 	
 	void updateUniformBuffer(PerFrameUniformBufferObject& ubo);
 
-	bool submit() override final;
+	bool submit();
 
 private:
 	void createGBufferImages(uint32_t width, uint32_t height);

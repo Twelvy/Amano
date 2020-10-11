@@ -149,21 +149,21 @@ bool RaytracingShadowPass::submit() {
 	// submit raytracing
 	// 1. wait for the semaphores
 	// 2. signal the pass semaphore
-	VkSubmitInfo raytracingSubmitInfo{};
-	raytracingSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	raytracingSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(m_waitSemaphores.size());
-	raytracingSubmitInfo.pWaitSemaphores = m_waitSemaphores.data();
-	raytracingSubmitInfo.pWaitDstStageMask = m_waitPipelineStages.data();
+	submitInfo.waitSemaphoreCount = static_cast<uint32_t>(m_waitSemaphores.size());
+	submitInfo.pWaitSemaphores = m_waitSemaphores.data();
+	submitInfo.pWaitDstStageMask = m_waitPipelineStages.data();
 
-	raytracingSubmitInfo.commandBufferCount = 1;
-	raytracingSubmitInfo.pCommandBuffers = &m_commandBuffer;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &m_commandBuffer;
 
-	raytracingSubmitInfo.signalSemaphoreCount = 1;
-	raytracingSubmitInfo.pSignalSemaphores = &m_signalSemaphore;
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &m_signalSemaphore;
 
 	auto pQueue = m_device->getQueue(QueueType::eGraphics);
-	if (!pQueue->submit(&raytracingSubmitInfo, VK_NULL_HANDLE))
+	if (!pQueue->submit(&submitInfo, VK_NULL_HANDLE))
 		return false;
 
 	return true;

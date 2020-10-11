@@ -34,7 +34,7 @@ public:
 	void updateRayUniformBuffer(RayParams& ubo);
 	void updateLightUniformBuffer(LightInformation& ubo);
 
-	bool submit() override final;
+	bool submit();
 
 private:
 	void createOutputImage(uint32_t width, uint32_t height);

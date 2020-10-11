@@ -12,6 +12,7 @@
 #include "UniformBuffer.h"
 #include "Builder/RaytracingAccelerationStructureBuilder.h"
 #include "Builder/ShaderBindingTableBuilder.h"
+#include "Pass/BlitToSwapChainPass.h"
 #include "Pass/DeferredLightingPass.h"
 #include "Pass/GBufferPass.h"
 #include "Pass/RaytracingShadowPass.h"
@@ -49,9 +50,6 @@ private:
 	void drawUI(uint32_t imageIndex);
 	void updateUniformBuffers();
 
-	// multiple methods to record the commands once
-	void recordBlitCommands();
-
 private:
 	GLFWwindow* m_window;
 
@@ -76,10 +74,8 @@ private:
 	Mesh* m_mesh;
 	Image* m_modelTexture;
 	VkSemaphore m_imageAvailableSemaphore;
-	VkSemaphore m_blitFinishedSemaphore;
 	VkFence m_inFlightFence;
 	// need more for double buffering
-	std::vector<VkCommandBuffer> m_blitCommandBuffers;
 
 	GBufferPass* m_gBufferPass;
 
@@ -88,6 +84,9 @@ private:
 
 	// for raytracing
 	RaytracingShadowPass* m_raytracingPass;
+
+	// for blit
+	BlitToSwapChainPass* m_blitToSwapChainPass;
 
 	// light information
 	glm::vec3 m_lightPosition;

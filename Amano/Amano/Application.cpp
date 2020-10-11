@@ -53,14 +53,14 @@ Application::Application()
 	, m_mesh{ nullptr }
 	, m_modelTexture{ nullptr }
 	, m_imageAvailableSemaphore{ VK_NULL_HANDLE }
-	, m_blitFinishedSemaphore{ VK_NULL_HANDLE }
 	, m_inFlightFence{ VK_NULL_HANDLE }
-	, m_blitCommandBuffers()
 	, m_gBufferPass{ nullptr }
 	// deferred lighting
 	, m_deferredLightingPass{ nullptr }
 	// raytracing
 	, m_raytracingPass{ nullptr }
+	// blit
+	, m_blitToSwapChainPass{ nullptr }
 	// light information
 	, m_lightPosition(1.0f, 1.0f, 1.0f)
 {
@@ -70,11 +70,11 @@ Application::~Application() {
 	// TODO: wrap as many of those members into classes that know how to delete the Vulkan objects
 	cleanSizedependentObjects();
 
+	delete m_blitToSwapChainPass;
 	delete m_raytracingPass;
 	delete m_deferredLightingPass;
 	delete m_gBufferPass;
 
-	vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_imageAvailableSemaphore, nullptr);
 	vkDestroyFence(m_device->handle(), m_inFlightFence, nullptr);
 
@@ -167,16 +167,11 @@ void Application::createSizeDependentObjects() {
 		m_gBufferPass->recreateOnRenderTargetResized(m_width, m_height, m_mesh, m_modelTexture);
 		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->albedoImage(), m_gBufferPass->normalImage(), m_gBufferPass->depthImage());
 		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->depthImage(), m_gBufferPass->normalImage(), m_deferredLightingPass->outputImage());
-
-		recordBlitCommands();
+		m_blitToSwapChainPass->recreateOnRenderTargetResized(m_width, m_height, m_raytracingPass->outputImage());
 	}
 }
 
 void Application::cleanSizedependentObjects() {
-	for (auto& cmd : m_blitCommandBuffers)
-		m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(cmd);
-	m_blitCommandBuffers.clear();
-
 	for (auto finalFb : m_finalFramebuffers)
 		vkDestroyFramebuffer(m_device->handle(), finalFb, nullptr);
 	m_finalFramebuffers.clear();
@@ -187,6 +182,8 @@ void Application::cleanSizedependentObjects() {
 		m_deferredLightingPass->cleanOnRenderTargetResized();
 	if (m_raytracingPass != nullptr)
 		m_raytracingPass->cleanOnRenderTargetResized();
+	if (m_blitToSwapChainPass != nullptr)
+		m_blitToSwapChainPass->cleanOnRenderTargetResized();
 }
 
 bool Application::init() {
@@ -216,8 +213,7 @@ bool Application::init() {
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
-		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_blitFinishedSemaphore) != VK_SUCCESS) {
+	if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS) {
 
 		std::cerr << "failed to create semaphores for a frame!" << std::endl;
 		return false;
@@ -258,7 +254,6 @@ bool Application::init() {
 	/////////////////////////////////////////////
 	// Raytracing
 	/////////////////////////////////////////////
-
 	std::vector<Mesh*> meshes;
 	meshes.push_back(m_mesh);
 	m_raytracingPass = new RaytracingShadowPass(m_device);
@@ -266,6 +261,12 @@ bool Application::init() {
 	if (!m_raytracingPass->init(meshes))
 		return false;
 
+	/////////////////////////////////////////////
+	// Blit
+	/////////////////////////////////////////////
+	m_blitToSwapChainPass = new BlitToSwapChainPass(m_device);
+	m_blitToSwapChainPass->addWaitSemaphore(m_raytracingPass->signalSemaphore(), m_raytracingPass->pipelineStage());
+	
 	/////////////////////////////////////////////
 	// Create all the object which depend on the
 	// size of the final render target
@@ -321,32 +322,15 @@ void Application::drawFrame() {
 		return;
 
 	// submit blit
-	// 1. wait for the raytracing finished semaphore
-	// 2. signal the blit finished semaphore
-	// 3. notify the in-flight fence
-	VkSubmitInfo blitSubmitInfo{};
-	blitSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	VkSemaphore blitWaitSemaphores[] = { m_raytracingPass->signalSemaphore() };
-	VkPipelineStageFlags blitWaitStages[] = { m_raytracingPass->pipelineStage() };
-	blitSubmitInfo.waitSemaphoreCount = 1;
-	blitSubmitInfo.pWaitSemaphores = blitWaitSemaphores;
-	blitSubmitInfo.pWaitDstStageMask = blitWaitStages;
-	blitSubmitInfo.commandBufferCount = 1;
-	blitSubmitInfo.pCommandBuffers = &m_blitCommandBuffers[imageIndex];
-
-	VkSemaphore blitSignalSemaphores[] = { m_blitFinishedSemaphore };
-	blitSubmitInfo.signalSemaphoreCount = 1;
-	blitSubmitInfo.pSignalSemaphores = blitSignalSemaphores;
-
-	auto pQueue = m_device->getQueue(QueueType::eGraphics);
-	if (!pQueue->submit(&blitSubmitInfo, m_inFlightFence))
+	if (!m_blitToSwapChainPass->submit(imageIndex, m_inFlightFence))
 		return;
 
 	// udpate UI
 	drawUI(imageIndex);
 	
+	// TODO: this should be the UI semaphore
 	// wait for the rendering to finish
-	result = m_device->present(m_blitFinishedSemaphore, imageIndex);
+	result = m_device->present(m_blitToSwapChainPass->signalSemaphore(), imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_framebufferResized) {
 		m_framebufferResized = false;
@@ -416,56 +400,6 @@ void Application::updateUniformBuffers() {
 	if (m_raytracingPass != nullptr) {
 		m_raytracingPass->updateRayUniformBuffer(rayUbo);
 		m_raytracingPass->updateLightUniformBuffer(lightUbo);
-	}
-}
-
-void Application::recordBlitCommands() {
-	auto pQueue = m_device->getQueue(QueueType::eGraphics);
-	m_blitCommandBuffers.resize(m_device->getSwapChainImages().size());
-
-	for (size_t i = 0; i < m_device->getSwapChainImages().size(); ++i) {
-		VkCommandBuffer blitCommandBuffer = pQueue->beginCommands();
-		m_blitCommandBuffers[i] = blitCommandBuffer;
-
-		// transition the swapchain
-		TransitionImageBarrierBuilder<1> transition;
-		transition
-			.setImage(0, m_device->getSwapChainImages()[i])
-			.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-			.setAccessMasks(0, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT)
-			.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
-			.execute(blitCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-		VkImageBlit blit{};
-		blit.srcOffsets[0] = { 0, 0, 0 };
-		blit.srcOffsets[1] = { static_cast<int32_t>(m_width), static_cast<int32_t>(m_height), 1 };
-		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		blit.srcSubresource.mipLevel = 0;
-		blit.srcSubresource.baseArrayLayer = 0;
-		blit.srcSubresource.layerCount = 1;
-		blit.dstOffsets[0] = { 0, 0, 0 };
-		blit.dstOffsets[1] = { static_cast<int32_t>(m_width), static_cast<int32_t>(m_height), 1 };
-		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		blit.dstSubresource.mipLevel = 0;
-		blit.dstSubresource.baseArrayLayer = 0;
-		blit.dstSubresource.layerCount = 1;
-
-		vkCmdBlitImage(blitCommandBuffer,
-			//m_GBuffer.colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			//m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			//m_GBuffer.depthImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			m_raytracingPass->outputImage()->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1, &blit,
-			VK_FILTER_LINEAR);
-
-		// transition the swapchain again for ui rendering
-		transition
-			.setLayouts(0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-			.setAccessMasks(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-			.execute(blitCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-		pQueue->endCommands(blitCommandBuffer);
 	}
 }
 

@@ -123,6 +123,9 @@
     <ClCompile Include="Pass\GBufferPass.cpp">
       <Filter>Source Files\Pass</Filter>
     </ClCompile>
+    <ClCompile Include="Pass\BlitToSwapChainPass.cpp">
+      <Filter>Source Files\Pass</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -237,6 +240,9 @@
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
     <ClInclude Include="Pass\GBufferPass.h">
+      <Filter>Header Files\Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="Pass\BlitToSwapChainPass.h">
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
   </ItemGroup>

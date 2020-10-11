@@ -16,8 +16,6 @@ public:
 
 	void addWaitSemaphore(VkSemaphore semaphore, VkPipelineStageFlags pipelineStage);
 	
-	virtual bool submit() = 0;
-
 protected:
 	Device* m_device;
 	VkSemaphore m_signalSemaphore;

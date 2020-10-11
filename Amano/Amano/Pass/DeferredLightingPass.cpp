@@ -141,21 +141,21 @@ bool DeferredLightingPass::submit() {
 	// submit lighting compute
 	// 1. wait for the semaphores
 	// 2. signal the render finished semaphore
-	VkSubmitInfo computeSubmitInfo{};
-	computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	computeSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(m_waitSemaphores.size());
-	computeSubmitInfo.pWaitSemaphores = m_waitSemaphores.data();
-	computeSubmitInfo.pWaitDstStageMask = m_waitPipelineStages.data();;
+	submitInfo.waitSemaphoreCount = static_cast<uint32_t>(m_waitSemaphores.size());
+	submitInfo.pWaitSemaphores = m_waitSemaphores.data();
+	submitInfo.pWaitDstStageMask = m_waitPipelineStages.data();;
 
-	computeSubmitInfo.commandBufferCount = 1;
-	computeSubmitInfo.pCommandBuffers = &m_commandBuffer;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &m_commandBuffer;
 
-	computeSubmitInfo.signalSemaphoreCount = 1;
-	computeSubmitInfo.pSignalSemaphores = &m_signalSemaphore;
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &m_signalSemaphore;
 
 	auto pComputeQueue = m_device->getQueue(QueueType::eCompute);
-	if (!pComputeQueue->submit(&computeSubmitInfo, VK_NULL_HANDLE))
+	if (!pComputeQueue->submit(&submitInfo, VK_NULL_HANDLE))
 		return false;
 
 	return true;
