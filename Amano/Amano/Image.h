@@ -27,8 +27,8 @@ public:
 	uint32_t getWidth() const { return m_width; }
 	uint32_t getHeight() const { return m_height; }
 	uint32_t getMipLevels() const { return m_mipLevels; }
-	VkImage handle() { return m_image; }
-	VkImageView viewHandle() { return m_imageView; }
+	VkImage handle() const { return m_image; }
+	VkImageView viewHandle() const { return m_imageView; }
 
 	bool create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
 	bool create2D(const std::string& filename, Queue& queue);
