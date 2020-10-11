@@ -12,6 +12,7 @@
 #include "UniformBuffer.h"
 #include "Builder/RaytracingAccelerationStructureBuilder.h"
 #include "Builder/ShaderBindingTableBuilder.h"
+#include "Pass/DeferredLightingPass.h"
 #include "Pass/RaytracingShadowPass.h"
 
 namespace Amano {
@@ -56,7 +57,6 @@ private:
 
 	// multiple methods to record the commands once
 	void recordRenderCommands();
-	void recordComputeCommands();
 	void recordBlitCommands();
 
 private:
@@ -99,22 +99,14 @@ private:
 	VkDescriptorSet m_descriptorSet;
 	VkSemaphore m_imageAvailableSemaphore;
 	VkSemaphore m_renderFinishedSemaphore;
-	VkSemaphore m_lightingFinishedSemaphore;
 	VkSemaphore m_blitFinishedSemaphore;
 	VkFence m_inFlightFence;
 	// need more for double buffering
 	VkCommandBuffer m_renderCommandBuffer;
 	std::vector<VkCommandBuffer> m_blitCommandBuffers;
 
-	// for compute shader
-	VkDescriptorSetLayout m_computeDescriptorSetLayout;
-	VkPipelineLayout m_computePipelineLayout;
-	VkPipeline m_computePipeline;
-	VkDescriptorSet m_computeDescriptorSet;
-	Image* m_computeImage;
-	Image* m_environmentImage;
-	VkCommandBuffer m_computeCommandBuffer;
-	UniformBuffer<RayParams>* m_computeUniformBuffer;
+	// for lighting shader
+	DeferredLightingPass* m_deferredLightingPass;
 
 	// for raytracing
 	RaytracingShadowPass* m_raytracingPass;

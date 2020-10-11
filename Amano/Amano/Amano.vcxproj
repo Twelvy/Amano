@@ -184,6 +184,7 @@
     <ClCompile Include="InputSystem.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="Pass\DeferredLightingPass.cpp" />
     <ClCompile Include="Pass\Pass.cpp" />
     <ClCompile Include="Pass\RaytracingShadowPass.cpp" />
     <ClCompile Include="Queue.cpp" />
@@ -219,6 +220,7 @@
     <ClInclude Include="ImGuiSystem.h" />
     <ClInclude Include="InputSystem.h" />
     <ClInclude Include="Mesh.h" />
+    <ClInclude Include="Pass\DeferredLightingPass.h" />
     <ClInclude Include="Pass\Pass.h" />
     <ClInclude Include="Pass\RaytracingShadowPass.h" />
     <ClInclude Include="Queue.h" />

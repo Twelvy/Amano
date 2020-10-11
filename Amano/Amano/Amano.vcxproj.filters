@@ -114,6 +114,9 @@
     <ClCompile Include="Pass\RaytracingShadowPass.cpp">
       <Filter>Source Files\Pass</Filter>
     </ClCompile>
+    <ClCompile Include="Pass\DeferredLightingPass.cpp">
+      <Filter>Source Files\Pass</Filter>
+    </ClCompile>
     <ClCompile Include="Pass\Pass.cpp">
       <Filter>Source Files\Pass</Filter>
     </ClCompile>
@@ -222,6 +225,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Pass\RaytracingShadowPass.h">
+      <Filter>Header Files\Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="Pass\DeferredLightingPass.h">
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
     <ClInclude Include="Pass\Pass.h">

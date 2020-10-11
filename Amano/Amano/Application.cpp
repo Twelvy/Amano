@@ -70,15 +70,8 @@ Application::Application()
 	, m_inFlightFence{ VK_NULL_HANDLE }
 	, m_renderCommandBuffer{ VK_NULL_HANDLE }
 	, m_blitCommandBuffers()
-	// compute
-	, m_computeDescriptorSetLayout{ VK_NULL_HANDLE }
-	, m_computePipelineLayout{ VK_NULL_HANDLE }
-	, m_computePipeline{ VK_NULL_HANDLE }
-	, m_computeDescriptorSet{ VK_NULL_HANDLE }
-	, m_computeImage{ nullptr }
-	, m_environmentImage{ nullptr }
-	, m_computeCommandBuffer{ VK_NULL_HANDLE }
-	, m_computeUniformBuffer{ nullptr }
+	// deferred lighting
+	, m_deferredLightingPass{ nullptr }
 	// raytracing
 	, m_raytracingPass{ nullptr }
 	// final image
@@ -93,15 +86,9 @@ Application::~Application() {
 	cleanSizedependentObjects();
 
 	delete m_raytracingPass;
-
-	vkDestroyDescriptorSetLayout(m_device->handle(), m_computeDescriptorSetLayout, nullptr);
-	vkDestroyPipelineLayout(m_device->handle(), m_computePipelineLayout, nullptr);
-	vkDestroyPipeline(m_device->handle(), m_computePipeline, nullptr);
-	delete m_environmentImage;
-	delete m_computeUniformBuffer;
+	delete m_deferredLightingPass;
 
 	vkDestroySemaphore(m_device->handle(), m_blitFinishedSemaphore, nullptr);
-	vkDestroySemaphore(m_device->handle(), m_lightingFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_renderFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device->handle(), m_imageAvailableSemaphore, nullptr);
 	vkDestroyFence(m_device->handle(), m_inFlightFence, nullptr);
@@ -266,34 +253,6 @@ void Application::createSizeDependentObjects() {
 		m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
 
 		/////////////////////////////////////////////
-		// Compute
-		/////////////////////////////////////////////
-		
-		m_computeImage = new Image(m_device);
-		m_computeImage->create2D(
-			m_width,
-			m_height,
-			1,
-			formats.colorFormat,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		m_computeImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-		m_computeImage->transitionLayout(*m_device->getQueue(QueueType::eCompute), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-
-		// update the descriptor set
-		DescriptorSetBuilder computeDescriptorSetBuilder(m_device, 2, m_computeDescriptorSetLayout );
-		computeDescriptorSetBuilder
-			.addImage(m_nearestSampler, m_GBuffer.colorImage->viewHandle(), 0)
-			.addImage(m_nearestSampler, m_GBuffer.normalImage->viewHandle(), 1)
-			.addImage(m_nearestSampler, m_depthImage->viewHandle(), 2)
-			.addImage(m_sampler, m_environmentImage->viewHandle(), 3)
-			.addUniformBuffer(m_computeUniformBuffer->getBuffer(), m_computeUniformBuffer->getSize(), 4)
-			.addUniformBuffer(m_lightUniformBuffer->getBuffer(), m_lightUniformBuffer->getSize(), 5)
-			.addStorageImage(m_computeImage->viewHandle(), 6);
-		m_computeDescriptorSet = computeDescriptorSetBuilder.buildAndUpdate();
-
-		/////////////////////////////////////////////
 		// final image
 		/////////////////////////////////////////////
 		m_finalImage = new Image(m_device);
@@ -309,26 +268,17 @@ void Application::createSizeDependentObjects() {
 
 		// record the commands that will be executed, rendering and blitting
 		recordRenderCommands();
-		recordComputeCommands();
 		recordBlitCommands();
 
-		if (m_raytracingPass != nullptr) {
-			m_raytracingPass->onRenderTargetResized(m_width, m_height, m_finalImage, m_depthImage, m_GBuffer.normalImage, m_computeImage);
-		}
+		m_deferredLightingPass->onRenderTargetResized(m_width, m_height, m_GBuffer.colorImage, m_GBuffer.normalImage, m_depthImage);
+		m_raytracingPass->onRenderTargetResized(m_width, m_height, m_finalImage, m_depthImage, m_GBuffer.normalImage, m_deferredLightingPass->outputImage());
 	}
 }
 
 void Application::cleanSizedependentObjects() {
 	delete m_finalImage;
 	m_finalImage = nullptr;
-
-	vkFreeDescriptorSets(m_device->handle(), m_device->getDescriptorPool(), 1, &m_computeDescriptorSet);
-	m_computeDescriptorSet = VK_NULL_HANDLE;
-	delete m_computeImage;
-	m_computeImage = nullptr;
-	m_device->getQueue(QueueType::eCompute)->freeCommandBuffer(m_computeCommandBuffer);
-	m_computeCommandBuffer = VK_NULL_HANDLE;
-
+	
 	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
 	m_renderCommandBuffer = VK_NULL_HANDLE;
 	for (auto& cmd : m_blitCommandBuffers)
@@ -380,7 +330,6 @@ bool Application::init() {
 
 	if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
 		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_renderFinishedSemaphore) != VK_SUCCESS ||
-		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_lightingFinishedSemaphore) != VK_SUCCESS ||
 		vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_blitFinishedSemaphore) != VK_SUCCESS) {
 
 		std::cerr << "failed to create semaphores for a frame!" << std::endl;
@@ -452,43 +401,12 @@ bool Application::init() {
 	m_nearestSampler = depthSamplerBuilder.build(*m_device);
 
 	/////////////////////////////////////////////
-	// Compute
+	// Deferred lighting
 	/////////////////////////////////////////////
-
-	m_computeUniformBuffer = new UniformBuffer<RayParams>(m_device);
-
-	m_environmentImage = new Image(m_device);
-	m_environmentImage->createCube(
-		"assets/textures/Yokohama3/posx.jpg",
-		"assets/textures/Yokohama3/negx.jpg",
-		"assets/textures/Yokohama3/posy.jpg",
-		"assets/textures/Yokohama3/negy.jpg",
-		"assets/textures/Yokohama3/posz.jpg",
-		"assets/textures/Yokohama3/negz.jpg",
-		*m_device->getQueue(QueueType::eGraphics));
-	m_environmentImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-
-	DescriptorSetLayoutBuilder computeDescriptorSetLayoutbuilder;
-	computeDescriptorSetLayoutbuilder
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // albedo image
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // normal image
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // depth image
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)    // environment image
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_COMPUTE_BIT)    // camera information
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_COMPUTE_BIT)    // light information
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          VK_SHADER_STAGE_COMPUTE_BIT);   // output image
-	m_computeDescriptorSetLayout = computeDescriptorSetLayoutbuilder.build(*m_device);
-
-	// create raytracing pipeline layout
-	PipelineLayoutBuilder computePipelineLayoutBuilder;
-	computePipelineLayoutBuilder.addDescriptorSetLayout(m_computeDescriptorSetLayout);
-	m_computePipelineLayout = computePipelineLayoutBuilder.build(*m_device);
-
-	// load the shaders and create the pipeline
-	ComputePipelineBuilder computePipelineBuilder(m_device);
-	computePipelineBuilder
-		.addShader("compiled_shaders/deferred_lighting.spv", VK_SHADER_STAGE_COMPUTE_BIT);
-	m_computePipeline = computePipelineBuilder.build(m_computePipelineLayout);
+	m_deferredLightingPass = new DeferredLightingPass(m_device);
+	m_deferredLightingPass->addWaitSemaphore(m_renderFinishedSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	if (!m_deferredLightingPass->init())
+		return false;
 
 	/////////////////////////////////////////////
 	// Raytracing
@@ -497,7 +415,7 @@ bool Application::init() {
 	std::vector<Mesh*> meshes;
 	meshes.push_back(m_mesh);
 	m_raytracingPass = new RaytracingShadowPass(m_device);
-	m_raytracingPass->addWaitSemaphore(m_lightingFinishedSemaphore, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	m_raytracingPass->addWaitSemaphore(m_deferredLightingPass->signalSemaphore(), m_deferredLightingPass->pipelineStage());
 	if (!m_raytracingPass->init(meshes))
 		return false;
 
@@ -567,28 +485,8 @@ void Application::drawFrame() {
 	if (!pQueue->submit(&submitInfo, VK_NULL_HANDLE))
 		return;
 
-	// submit lighting compute
-	// 1. wait for the render finished semaphore
-	// 2. signal the render finished semaphore
-	// 3. notify the raytracing fence
-	VkSubmitInfo computeSubmitInfo{};
-	computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-	VkSemaphore computeWaitSemaphores[] = { m_renderFinishedSemaphore };
-	VkPipelineStageFlags computeWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	computeSubmitInfo.waitSemaphoreCount = 1;
-	computeSubmitInfo.pWaitSemaphores = computeWaitSemaphores;
-	computeSubmitInfo.pWaitDstStageMask = computeWaitStages;
-
-	computeSubmitInfo.commandBufferCount = 1;
-	computeSubmitInfo.pCommandBuffers = &m_computeCommandBuffer;
-
-	VkSemaphore computeSignalSemaphores[] = { m_lightingFinishedSemaphore };
-	computeSubmitInfo.signalSemaphoreCount = 1;
-	computeSubmitInfo.pSignalSemaphores = computeSignalSemaphores;
-
-	auto pComputeQueue = m_device->getQueue(QueueType::eCompute);
-	if (!pComputeQueue->submit(&computeSubmitInfo, VK_NULL_HANDLE))
+	// submit deferred lighting
+	if (!m_deferredLightingPass->submit())
 		return;
 
 	// submit raytracing
@@ -681,7 +579,10 @@ void Application::updateUniformBuffer() {
 	lightUbo.lightPosition = m_lightPosition;
 	m_lightUniformBuffer->update(lightUbo);
 
-	m_computeUniformBuffer->update(rayUbo);
+	if (m_deferredLightingPass != nullptr) {
+		m_deferredLightingPass->updateUniformBuffer(rayUbo);
+		m_deferredLightingPass->updateLightUniformBuffer(lightUbo);
+	}
 
 	if (m_raytracingPass != nullptr) {
 		m_raytracingPass->updateRayUniformBuffer(rayUbo);
@@ -759,32 +660,6 @@ void Application::recordRenderCommands() {
 	vkCmdEndRenderPass(m_renderCommandBuffer);
 
 	pQueue->endCommands(m_renderCommandBuffer);
-}
-
-void Application::recordComputeCommands() {
-	Queue* pQueue = m_device->getQueue(QueueType::eCompute);
-	m_computeCommandBuffer = pQueue->beginCommands();
-
-	vkCmdBindPipeline(m_computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
-	vkCmdBindDescriptorSets(m_computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipelineLayout, 0, 1, &m_computeDescriptorSet, 0, nullptr);
-
-	// local size is 32 for x and y
-	const uint32_t locaSizeX = 32;
-	const uint32_t locaSizeY = 32;
-	uint32_t dispatchX = (m_width + locaSizeX - 1) / locaSizeX;
- 	uint32_t dispatchY = (m_height + locaSizeY - 1) / locaSizeY;
-	vkCmdDispatch(m_computeCommandBuffer, dispatchX, dispatchY, 1);
-
-	// transition the compute image to shader sampler
-	TransitionImageBarrierBuilder<1> transition;
-	transition
-		.setImage(0, m_computeImage->handle())
-		.setLayouts(0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-		.setAccessMasks(0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
-		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
-		.execute(m_computeCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-
-	pQueue->endCommands(m_computeCommandBuffer);
 }
 
 void Application::recordBlitCommands() {
