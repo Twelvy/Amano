@@ -11,7 +11,7 @@
 namespace Amano {
 
 RaytracingShadowPass::RaytracingShadowPass(Device* device)
-	: m_device{ device }
+	: Pass(device, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV)
 	, m_descriptorSetLayout{ VK_NULL_HANDLE }
 	, m_pipelineLayout{ VK_NULL_HANDLE }
 	, m_pipeline{ VK_NULL_HANDLE }
@@ -22,12 +22,7 @@ RaytracingShadowPass::RaytracingShadowPass(Device* device)
 	, m_rayUniformBuffer(device)
 	, m_lightUniformBuffer(device)
 	, m_commandBuffer{ VK_NULL_HANDLE }
-	, m_signalSemaphore{ VK_NULL_HANDLE }
-	, m_pipelineStage{ VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV }
-	, m_waitSemaphores()
-	, m_waitPipelineStages()
 {
-
 }
 
 RaytracingShadowPass::~RaytracingShadowPass() {
@@ -40,7 +35,6 @@ RaytracingShadowPass::~RaytracingShadowPass() {
 	vkDestroyPipelineLayout(m_device->handle(), m_pipelineLayout, nullptr);
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_descriptorSetLayout, nullptr);
 	vkDestroySampler(m_device->handle(), m_nearestSampler, nullptr);
-	vkDestroySemaphore(m_device->handle(), m_signalSemaphore, nullptr);
 }
 
 bool RaytracingShadowPass::init(std::vector<Mesh*>& meshes) {
@@ -83,16 +77,6 @@ bool RaytracingShadowPass::init(std::vector<Mesh*>& meshes) {
 	for (auto mesh : meshes)
 		accelerationStructureBuilder.addGeometry(*mesh);
 	m_accelerationStructures = accelerationStructureBuilder.build();
-
-	// create the sync objects
-	VkSemaphoreCreateInfo semaphoreInfo{};
-	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	// create signal semaphore
-	if (vkCreateSemaphore(m_device->handle(), &semaphoreInfo, nullptr, &m_signalSemaphore) != VK_SUCCESS) {
-		std::cerr << "failed to create semaphores for a frame!" << std::endl;
-		return false;
-	}
 
 	// create a sampler for the depth texture
 	SamplerBuilder samplerBuilder;
@@ -161,11 +145,6 @@ void RaytracingShadowPass::recordCommands(uint32_t width, uint32_t height, Image
 		.execute(m_commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
 	pQueue->endCommands(m_commandBuffer);
-}
-
-void RaytracingShadowPass::addWaitSemaphore(VkSemaphore semaphore, VkPipelineStageFlags pipelineStage) {
-	m_waitSemaphores.push_back(semaphore);
-	m_waitPipelineStages.push_back(pipelineStage);
 }
 
 void RaytracingShadowPass::onRenderTargetResized(uint32_t width, uint32_t height, Image* finalImage, Image* depthImage, Image* normalImage, Image* colorImage) {
