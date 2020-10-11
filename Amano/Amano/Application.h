@@ -8,29 +8,13 @@
 #include "ImGuiSystem.h"
 #include "InputSystem.h"
 #include "Mesh.h"
+#include "Ubo.h"
 #include "UniformBuffer.h"
 #include "Builder/RaytracingAccelerationStructureBuilder.h"
 #include "Builder/ShaderBindingTableBuilder.h"
+#include "Pass/RaytracingShadowPass.h"
 
 namespace Amano {
-
-// Uniform buffer for gbuffer vertex shader 
-struct PerFrameUniformBufferObject {
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
-};
-
-// Uniform buffer for raygen shader
-struct RayParams {
-	glm::mat4 viewInverse;
-	glm::mat4 projInverse;
-	glm::vec3 rayOrigin;
-};
-
-struct LightInformation {
-	glm::vec3 lightPosition;
-};
 
 class Application {
 public:
@@ -73,7 +57,6 @@ private:
 	// multiple methods to record the commands once
 	void recordRenderCommands();
 	void recordComputeCommands();
-	void recordRaytracingCommands();
 	void recordBlitCommands();
 
 private:
@@ -117,7 +100,6 @@ private:
 	VkSemaphore m_imageAvailableSemaphore;
 	VkSemaphore m_renderFinishedSemaphore;
 	VkSemaphore m_lightingFinishedSemaphore;
-	VkSemaphore m_raytracingFinishedSemaphore;
 	VkSemaphore m_blitFinishedSemaphore;
 	VkFence m_inFlightFence;
 	// need more for double buffering
@@ -132,16 +114,10 @@ private:
 	Image* m_computeImage;
 	Image* m_environmentImage;
 	VkCommandBuffer m_computeCommandBuffer;
+	UniformBuffer<RayParams>* m_computeUniformBuffer;
 
 	// for raytracing
-	UniformBuffer<RayParams>* m_raytracingUniformBuffer;
-	VkDescriptorSetLayout m_raytracingDescriptorSetLayout;
-	VkPipelineLayout m_raytracingPipelineLayout;
-	VkPipeline m_raytracingPipeline;
-	VkDescriptorSet m_raytracingDescriptorSet;
-	AccelerationStructures m_accelerationStructures;
-	ShaderBindingTables m_shaderBindingTables;
-	VkCommandBuffer m_raytracingCommandBuffer;
+	RaytracingShadowPass* m_raytracingPass;
 
 	// final image
 	Image* m_finalImage;

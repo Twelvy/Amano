@@ -184,6 +184,7 @@
     <ClCompile Include="InputSystem.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="Pass\RaytracingShadowPass.cpp" />
     <ClCompile Include="Queue.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -217,7 +218,9 @@
     <ClInclude Include="ImGuiSystem.h" />
     <ClInclude Include="InputSystem.h" />
     <ClInclude Include="Mesh.h" />
+    <ClInclude Include="Pass\RaytracingShadowPass.h" />
     <ClInclude Include="Queue.h" />
+    <ClInclude Include="Ubo.h" />
     <ClInclude Include="UniformBuffer.h" />
     <ClInclude Include="Vertex.h" />
   </ItemGroup>
