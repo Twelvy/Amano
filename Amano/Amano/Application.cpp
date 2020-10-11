@@ -179,7 +179,7 @@ Application::Formats Application::getFormats() {
 		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
 	);
 	formats.colorFormat = VK_FORMAT_R8G8B8A8_UNORM; // VK_FORMAT_R8G8B8A8_SRGB
-	formats.normalFormat = VK_FORMAT_R8G8B8A8_SNORM;
+	formats.normalFormat = VK_FORMAT_R16G16B16A16_SNORM;
 	return formats;
 }
 
@@ -672,7 +672,7 @@ void Application::drawFrame() {
 	VkSubmitInfo blitSubmitInfo{};
 	blitSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	VkSemaphore blitWaitSemaphores[] = { m_raytracingFinishedSemaphore };
-	VkPipelineStageFlags blitWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	VkPipelineStageFlags blitWaitStages[] = { VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV };
 	blitSubmitInfo.waitSemaphoreCount = 1;
 	blitSubmitInfo.pWaitSemaphores = blitWaitSemaphores;
 	blitSubmitInfo.pWaitDstStageMask = blitWaitStages;
