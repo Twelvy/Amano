@@ -21,13 +21,13 @@ RaytracingShadowPass::RaytracingShadowPass(Device* device)
 	, m_nearestSampler{ VK_NULL_HANDLE }
 	, m_rayUniformBuffer(device)
 	, m_lightUniformBuffer(device)
+	, m_outputImage{ nullptr }
 	, m_commandBuffer{ VK_NULL_HANDLE }
 {
 }
 
 RaytracingShadowPass::~RaytracingShadowPass() {
-	destroyDescriptorSet();
-	destroyCommandBuffer();
+	cleanOnRenderTargetResized();
 
 	m_accelerationStructures.clean(m_device);
 	m_shaderBindingTables.clean(m_device);
@@ -88,23 +88,7 @@ bool RaytracingShadowPass::init(std::vector<Mesh*>& meshes) {
 	return true;
 }
 
-bool RaytracingShadowPass::createDescriptorSet(Image* finalImage, Image* depthImage, Image* normalImage, Image* colorImage) {
-	// update the descriptor set for raytracing
-	DescriptorSetBuilder raytracingDescriptorSetBuilder(m_device, 2, m_descriptorSetLayout);
-	raytracingDescriptorSetBuilder
-		.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
-		.addStorageImage(finalImage->viewHandle(), 1)
-		.addUniformBuffer(m_rayUniformBuffer.getBuffer(), m_rayUniformBuffer.getSize(), 2)
-		.addImage(m_nearestSampler, depthImage->viewHandle(), 3)
-		.addImage(m_nearestSampler, normalImage->viewHandle(), 4)
-		.addImage(m_nearestSampler, colorImage->viewHandle(), 5)
-		.addUniformBuffer(m_lightUniformBuffer.getBuffer(), m_lightUniformBuffer.getSize(), 6);
-	m_descriptorSet = raytracingDescriptorSetBuilder.buildAndUpdate();
-
-	return m_descriptorSet != VK_NULL_HANDLE;
-}
-
-void RaytracingShadowPass::recordCommands(uint32_t width, uint32_t height, Image* finalImage, Image* colorImage) {
+void RaytracingShadowPass::recordCommands(uint32_t width, uint32_t height, Image* colorImage) {
 	destroyCommandBuffer();
 
 	Queue* pQueue = m_device->getQueue(QueueType::eGraphics);
@@ -113,8 +97,8 @@ void RaytracingShadowPass::recordCommands(uint32_t width, uint32_t height, Image
 	// transition the raytracing output buffer from copy to storage
 	TransitionImageBarrierBuilder<1> transition;
 	transition
-		.setImage(0, finalImage->handle())
-		.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL)
+		.setImage(0, m_outputImage->handle())
+		.setLayouts(0, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
 		.setAccessMasks(0, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
 		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
 		.execute(m_commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
@@ -129,19 +113,10 @@ void RaytracingShadowPass::recordCommands(uint32_t width, uint32_t height, Image
 		nullptr, 0, 0,
 		width, height, 1);
 
-	// transition the raytracing image to be blitted
+	// transition the raytracing output buffer from storage to src copy
 	transition
 		.setLayouts(0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
 		.setAccessMasks(0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT)
-		.execute(m_commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-
-	// transition the lighting image for storage access
-	TransitionImageBarrierBuilder<1> gbufferTransition;
-	gbufferTransition
-		.setImage(0, colorImage->handle())
-		.setLayouts(0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
-		.setAccessMasks(0, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
-		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
 		.execute(m_commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
 	pQueue->endCommands(m_commandBuffer);
@@ -150,11 +125,13 @@ void RaytracingShadowPass::recordCommands(uint32_t width, uint32_t height, Image
 void RaytracingShadowPass::cleanOnRenderTargetResized() {
 	destroyDescriptorSet();
 	destroyCommandBuffer();
+	destroyOutputImage();
 }
 
-void RaytracingShadowPass::recreateOnRenderTargetResized(uint32_t width, uint32_t height, Image* finalImage, Image* depthImage, Image* normalImage, Image* colorImage) {
-	createDescriptorSet(finalImage, depthImage, normalImage, colorImage);
-	recordCommands(width, height, finalImage, colorImage);
+void RaytracingShadowPass::recreateOnRenderTargetResized(uint32_t width, uint32_t height, Image* depthImage, Image* normalImage, Image* colorImage) {
+	createOutputImage(width, height);
+	createDescriptorSet(depthImage, normalImage, colorImage);
+	recordCommands(width, height, colorImage);
 }
 
 void RaytracingShadowPass::updateRayUniformBuffer(RayParams& ubo) {
@@ -190,6 +167,41 @@ bool RaytracingShadowPass::submit() {
 		return false;
 
 	return true;
+}
+
+void RaytracingShadowPass::createOutputImage(uint32_t width, uint32_t height) {
+	m_outputImage = new Image(m_device);
+	m_outputImage->create2D(
+		width,
+		height,
+		1,
+		VK_FORMAT_R8G8B8A8_UNORM,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	m_outputImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+	m_outputImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+}
+
+void RaytracingShadowPass::destroyOutputImage() {
+	delete m_outputImage;
+	m_outputImage = nullptr;
+}
+
+bool RaytracingShadowPass::createDescriptorSet(Image* depthImage, Image* normalImage, Image* colorImage) {
+	// update the descriptor set for raytracing
+	DescriptorSetBuilder raytracingDescriptorSetBuilder(m_device, 2, m_descriptorSetLayout);
+	raytracingDescriptorSetBuilder
+		.addAccelerationStructure(&m_accelerationStructures.top.handle, 0)
+		.addStorageImage(m_outputImage->viewHandle(), 1)
+		.addUniformBuffer(m_rayUniformBuffer.getBuffer(), m_rayUniformBuffer.getSize(), 2)
+		.addImage(m_nearestSampler, depthImage->viewHandle(), 3)
+		.addImage(m_nearestSampler, normalImage->viewHandle(), 4)
+		.addImage(m_nearestSampler, colorImage->viewHandle(), 5)
+		.addUniformBuffer(m_lightUniformBuffer.getBuffer(), m_lightUniformBuffer.getSize(), 6);
+	m_descriptorSet = raytracingDescriptorSetBuilder.buildAndUpdate();
+
+	return m_descriptorSet != VK_NULL_HANDLE;
 }
 
 void RaytracingShadowPass::destroyDescriptorSet() {

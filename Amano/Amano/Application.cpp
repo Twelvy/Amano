@@ -74,8 +74,6 @@ Application::Application()
 	, m_deferredLightingPass{ nullptr }
 	// raytracing
 	, m_raytracingPass{ nullptr }
-	// final image
-	, m_finalImage{ nullptr }
 	// light information
 	, m_lightPosition(1.0f, 1.0f, 1.0f)
 {
@@ -252,33 +250,17 @@ void Application::createSizeDependentObjects() {
 			.addImage(m_sampler, m_modelTexture->viewHandle(), 1);
 		m_descriptorSet = descriptorSetBuilder.buildAndUpdate();
 
-		/////////////////////////////////////////////
-		// final image
-		/////////////////////////////////////////////
-		m_finalImage = new Image(m_device);
-		m_finalImage->create2D(
-			m_width,
-			m_height,
-			1,
-			VK_FORMAT_R8G8B8A8_UNORM,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		m_finalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-
 		// record the commands that will be executed, rendering and blitting
 		recordRenderCommands();
-		recordBlitCommands();
 
 		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_GBuffer.albedoImage, m_GBuffer.normalImage, m_depthImage);
-		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_finalImage, m_depthImage, m_GBuffer.normalImage, m_deferredLightingPass->outputImage());
+		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_depthImage, m_GBuffer.normalImage, m_deferredLightingPass->outputImage());
+
+		recordBlitCommands();
 	}
 }
 
 void Application::cleanSizedependentObjects() {
-	delete m_finalImage;
-	m_finalImage = nullptr;
-	
 	m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_renderCommandBuffer);
 	m_renderCommandBuffer = VK_NULL_HANDLE;
 	for (auto& cmd : m_blitCommandBuffers)
@@ -701,7 +683,7 @@ void Application::recordBlitCommands() {
 			//m_GBuffer.colorImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_GBuffer.normalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			//m_GBuffer.depthImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			m_finalImage->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_raytracingPass->outputImage()->handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			m_device->getSwapChainImages()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
 			VK_FILTER_LINEAR);

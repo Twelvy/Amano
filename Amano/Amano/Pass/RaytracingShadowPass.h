@@ -12,25 +12,24 @@ namespace Amano {
 
 // This class raytraces the scene to generate some shadows
 // TEMPORARY: to work correctly, the pass expect the following states for the images
-//   - finalImage: VK_IMAGE_LAYOUT_UNDEFINED, VK_ACCESS_TRANSFER_READ_BIT
+//   - finalImage: VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT
 //   - depthImage: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_READ_BIT
 //   - normalImage: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_READ_BIT
 //   - colorImage: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_READ_BIT
-// After submitting, the images states are:
-//   - finalImage: VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT
-//   - colorImage: VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_WRITE_BIT
-//   - the other images are unchanged
+// After submitting, the images states are he same
 class RaytracingShadowPass : public Pass {
 public:
 	RaytracingShadowPass(Device* device);
 	~RaytracingShadowPass();
 
+	Image* outputImage() const { return m_outputImage; }
+
 	bool init(std::vector<Mesh*>& meshes);
 
-	void recordCommands(uint32_t width, uint32_t height, Image* finalImage, Image* colorImage);
+	void recordCommands(uint32_t width, uint32_t height, Image* colorImage);
 
 	void cleanOnRenderTargetResized();
-	void recreateOnRenderTargetResized(uint32_t width, uint32_t height, Image* finalImage, Image* depthImage, Image* normalImage, Image* colorImage);
+	void recreateOnRenderTargetResized(uint32_t width, uint32_t height, Image* depthImage, Image* normalImage, Image* colorImage);
 	
 	void updateRayUniformBuffer(RayParams& ubo);
 	void updateLightUniformBuffer(LightInformation& ubo);
@@ -38,7 +37,9 @@ public:
 	bool submit() override final;
 
 private:
-	bool createDescriptorSet(Image* finalImage, Image* depthImage, Image* normalImage, Image* colorImage);
+	void createOutputImage(uint32_t width, uint32_t height);
+	void destroyOutputImage();
+	bool createDescriptorSet(Image* depthImage, Image* normalImage, Image* colorImage);
 	void destroyDescriptorSet();
 	void destroyCommandBuffer();
 
@@ -52,6 +53,7 @@ private:
 	VkSampler m_nearestSampler;
 	UniformBuffer<RayParams> m_rayUniformBuffer;
 	UniformBuffer<LightInformation> m_lightUniformBuffer;
+	Image* m_outputImage;
 
 	VkCommandBuffer m_commandBuffer;
 };

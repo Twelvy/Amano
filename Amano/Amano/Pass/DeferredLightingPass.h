@@ -13,10 +13,8 @@ namespace Amano {
 //   - albedoImage: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_READ_BIT
 //   - normalImage: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_READ_BIT
 //   - depthImage: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_READ_BIT
-//   - outputImage: VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_WRITE_BIT
-// After submitting, the images states are:
 //   - outputImage: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_READ_BIT
-//   - the others are unchanged
+// After submitting, the images states are the same
 // Everything is ready to be sampled by the next passes
 class DeferredLightingPass : public Pass {
 public:

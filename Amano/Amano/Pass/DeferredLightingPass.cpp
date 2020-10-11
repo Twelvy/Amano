@@ -25,9 +25,7 @@ DeferredLightingPass::DeferredLightingPass(Device* device)
 }
 
 DeferredLightingPass::~DeferredLightingPass() {
-	destroyDescriptorSet();
-	destroyOutputImage();
-	destroyCommandBuffer();
+	cleanOnRenderTargetResized();
 
 	vkDestroyDescriptorSetLayout(m_device->handle(), m_descriptorSetLayout, nullptr);
 	vkDestroyPipelineLayout(m_device->handle(), m_pipelineLayout, nullptr);
@@ -112,6 +110,14 @@ void DeferredLightingPass::recordCommands(uint32_t width, uint32_t height) {
 	Queue* pQueue = m_device->getQueue(QueueType::eCompute);
 	m_commandBuffer = pQueue->beginCommands();
 
+	TransitionImageBarrierBuilder<1> transition;
+	transition
+		.setImage(0, m_outputImage->handle())
+		.setLayouts(0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
+		.setAccessMasks(0, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
+		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+		.execute(m_commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
 	vkCmdBindPipeline(m_commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline);
 	vkCmdBindDescriptorSets(m_commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
@@ -123,12 +129,9 @@ void DeferredLightingPass::recordCommands(uint32_t width, uint32_t height) {
 	vkCmdDispatch(m_commandBuffer, dispatchX, dispatchY, 1);
 
 	// transition the compute image to shader sampler
-	TransitionImageBarrierBuilder<1> transition;
 	transition
-		.setImage(0, m_outputImage->handle())
 		.setLayouts(0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		.setAccessMasks(0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
-		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
 		.execute(m_commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
 	pQueue->endCommands(m_commandBuffer);
@@ -169,7 +172,7 @@ void DeferredLightingPass::createOutputImage(uint32_t width, uint32_t height) {
 		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	m_outputImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
-	m_outputImage->transitionLayout(*m_device->getQueue(QueueType::eCompute), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+	m_outputImage->transitionLayout(*m_device->getQueue(QueueType::eCompute), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void DeferredLightingPass::destroyOutputImage() {

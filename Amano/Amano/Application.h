@@ -111,9 +111,6 @@ private:
 	// for raytracing
 	RaytracingShadowPass* m_raytracingPass;
 
-	// final image
-	Image* m_finalImage;
-
 	// light information
 	glm::vec3 m_lightPosition;
 };
