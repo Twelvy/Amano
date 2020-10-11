@@ -215,8 +215,8 @@ void Application::createSizeDependentObjects() {
 		m_depthImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 		// create the images for the GBuffer
-		m_GBuffer.colorImage = new Image(m_device);
-		m_GBuffer.colorImage->create2D(
+		m_GBuffer.albedoImage = new Image(m_device);
+		m_GBuffer.albedoImage->create2D(
 			m_width,
 			m_height,
 			1,
@@ -224,7 +224,7 @@ void Application::createSizeDependentObjects() {
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		m_GBuffer.colorImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
+		m_GBuffer.albedoImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 		m_GBuffer.normalImage = new Image(m_device);
 		m_GBuffer.normalImage->create2D(
@@ -240,7 +240,7 @@ void Application::createSizeDependentObjects() {
 		// create the framebuffer
 		FramebufferBuilder framebufferBuilder;
 		framebufferBuilder
-			.addAttachment(m_GBuffer.colorImage->viewHandle())
+			.addAttachment(m_GBuffer.albedoImage->viewHandle())
 			.addAttachment(m_GBuffer.normalImage->viewHandle())
 			.addAttachment(m_depthImage->viewHandle());
 		m_framebuffer = framebufferBuilder.build(*m_device, m_renderPass, m_width, m_height);
@@ -270,7 +270,7 @@ void Application::createSizeDependentObjects() {
 		recordRenderCommands();
 		recordBlitCommands();
 
-		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_GBuffer.colorImage, m_GBuffer.normalImage, m_depthImage);
+		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_GBuffer.albedoImage, m_GBuffer.normalImage, m_depthImage);
 		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_finalImage, m_depthImage, m_GBuffer.normalImage, m_deferredLightingPass->outputImage());
 	}
 }
@@ -290,8 +290,8 @@ void Application::cleanSizedependentObjects() {
 
 	delete m_GBuffer.normalImage;
 	m_GBuffer.normalImage = nullptr;
-	delete m_GBuffer.colorImage;
-	m_GBuffer.colorImage = nullptr;
+	delete m_GBuffer.albedoImage;
+	m_GBuffer.albedoImage = nullptr;
 	delete m_depthImage;
 	m_depthImage = nullptr;
 
@@ -607,7 +607,7 @@ void Application::recordRenderCommands() {
 			.setAspectMask(i, VK_IMAGE_ASPECT_COLOR_BIT);
 	}
 	transition
-		.setImage(0, m_GBuffer.colorImage->handle())
+		.setImage(0, m_GBuffer.albedoImage->handle())
 		.setImage(1, m_GBuffer.normalImage->handle())
 		.setImage(2, m_depthImage->handle())
 		.setLayouts(2, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)

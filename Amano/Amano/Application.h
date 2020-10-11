@@ -83,7 +83,7 @@ private:
 	Image* m_depthImage;
 	VkSampler m_nearestSampler;
 	struct {
-		Image* colorImage = nullptr;
+		Image* albedoImage = nullptr;
 		Image* normalImage = nullptr;
 	} m_GBuffer;
 	VkRenderPass m_renderPass;
