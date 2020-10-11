@@ -168,9 +168,6 @@ bool GBufferPass::submit() {
 		return false;
 
 	// submit rendering
-	// 1. wait for the image to be available
-	// 2. signal the render finished semaphore
-	// 3. notify the lighting fence
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 

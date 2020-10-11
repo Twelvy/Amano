@@ -23,6 +23,7 @@ ImGuiSystem::ImGuiSystem(Device* device)
     , InputReader()
 	, m_descriptorPool{ VK_NULL_HANDLE }
     , m_renderPass{ VK_NULL_HANDLE }
+    , m_commandBuffer{ VK_NULL_HANDLE }
     , m_mouseJustPressed{}
 {
     for (int i = 0; i < ImGuiMouseButton_COUNT; ++i) {
@@ -35,6 +36,7 @@ ImGuiSystem::~ImGuiSystem() {
     ImGui::DestroyContext();
     vkDestroyRenderPass(m_device->handle(), m_renderPass, nullptr);
 	m_device->releaseDescriptorPool(m_descriptorPool);
+    m_device->getQueue(QueueType::eGraphics)->freeCommandBuffer(m_commandBuffer);
 }
 
 bool ImGuiSystem::init() {
@@ -125,12 +127,14 @@ void ImGuiSystem::startFrame() {
     ImGui::NewFrame();
 }
 
-void ImGuiSystem::endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t height) {
+void ImGuiSystem::endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t height, VkFence fence) {
     // setup the buffers
     ImGui::Render();
 
     auto queue = m_device->getQueue(QueueType::eGraphics);
-    auto cmd = queue->beginSingleTimeCommands();
+    queue->freeCommandBuffer(m_commandBuffer);
+    m_commandBuffer = VK_NULL_HANDLE;
+    m_commandBuffer = queue->beginSingleTimeCommands();
 
     // start the pass
     VkRenderPassBeginInfo info = {};
@@ -141,17 +145,36 @@ void ImGuiSystem::endFrame(VkFramebuffer framebuffer, uint32_t width, uint32_t h
     info.renderArea.extent.height = height;
     info.clearValueCount = 0; // no clear for now
     info.pClearValues = nullptr;
-    vkCmdBeginRenderPass(cmd, &info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(m_commandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
 
     // prepare the buffers
     ImDrawData* draw_data = ImGui::GetDrawData();
 
     // this method calls some commands so it should be called during a command recording
-    ImGui_ImplVulkan_RenderDrawData(draw_data, cmd);
+    ImGui_ImplVulkan_RenderDrawData(draw_data, m_commandBuffer);
 
-    vkCmdEndRenderPass(cmd);
+    vkCmdEndRenderPass(m_commandBuffer);
 
-    queue->endSingleTimeCommands(cmd);
+    //queue->endSingleTimeCommands(m_commandBuffer);
+    // since we want to use semaphore, do not call endSingleTimeCommands
+    // submit it manually, delete it at the next frame
+    vkEndCommandBuffer(m_commandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    submitInfo.waitSemaphoreCount = static_cast<uint32_t>(m_waitSemaphores.size());
+    submitInfo.pWaitSemaphores = m_waitSemaphores.data();
+    submitInfo.pWaitDstStageMask = m_waitPipelineStages.data();
+
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &m_commandBuffer;
+
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &m_signalSemaphore;
+
+    auto pQueue = m_device->getQueue(QueueType::eGraphics);
+    pQueue->submit(&submitInfo, fence);
 }
 
 bool ImGuiSystem::createRenderPass() {

@@ -192,15 +192,6 @@ bool Application::init() {
 	m_device = new Device();
 	if (!m_device->init(m_window)) return false;
 
-	m_guiSystem = new ImGuiSystem(m_device);
-	if (!m_guiSystem->init()) return false;
-
-	m_debugOrbitCamera = new DebugOrbitCamera();
-
-	m_inputSystem = new InputSystem();
-	m_inputSystem->registerReader(m_guiSystem);
-	m_inputSystem->registerReader(m_debugOrbitCamera);
-
 	/////////////////////////////////////////////
 	// from here, this is a test application
 	/////////////////////////////////////////////
@@ -267,6 +258,16 @@ bool Application::init() {
 	m_blitToSwapChainPass = new BlitToSwapChainPass(m_device);
 	m_blitToSwapChainPass->addWaitSemaphore(m_raytracingPass->signalSemaphore(), m_raytracingPass->pipelineStage());
 	
+	m_guiSystem = new ImGuiSystem(m_device);
+	m_guiSystem->addWaitSemaphore(m_blitToSwapChainPass->signalSemaphore(), m_blitToSwapChainPass->pipelineStage());
+	if (!m_guiSystem->init()) return false;
+
+	m_debugOrbitCamera = new DebugOrbitCamera();
+
+	m_inputSystem = new InputSystem();
+	m_inputSystem->registerReader(m_guiSystem);
+	m_inputSystem->registerReader(m_debugOrbitCamera);
+
 	/////////////////////////////////////////////
 	// Create all the object which depend on the
 	// size of the final render target
@@ -322,7 +323,7 @@ void Application::drawFrame() {
 		return;
 
 	// submit blit
-	if (!m_blitToSwapChainPass->submit(imageIndex, m_inFlightFence))
+	if (!m_blitToSwapChainPass->submit(imageIndex, VK_NULL_HANDLE))
 		return;
 
 	// udpate UI
@@ -330,7 +331,7 @@ void Application::drawFrame() {
 	
 	// TODO: this should be the UI semaphore
 	// wait for the rendering to finish
-	result = m_device->present(m_blitToSwapChainPass->signalSemaphore(), imageIndex);
+	result = m_device->present(m_guiSystem->signalSemaphore(), imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_framebufferResized) {
 		m_framebufferResized = false;
@@ -354,7 +355,7 @@ void Application::drawUI(uint32_t imageIndex) {
 	ImGui::DragFloat3("position", &m_lightPosition[0], 0.01f, 1.0f, 1.0f);
 	ImGui::End();
 
-	m_guiSystem->endFrame(m_finalFramebuffers[imageIndex], m_width, m_height);
+	m_guiSystem->endFrame(m_finalFramebuffers[imageIndex], m_width, m_height, m_inFlightFence);
 }
 
 void Application::updateUniformBuffers() {
