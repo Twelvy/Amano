@@ -202,7 +202,6 @@ bool Application::init() {
 		return false;
 	}
 
-	
 	// load the model to display
 	m_mesh = new Mesh(m_device);
 	m_mesh->create("assets/models/sphere.obj");
@@ -245,6 +244,9 @@ bool Application::init() {
 	m_blitToSwapChainPass = new BlitToSwapChainPass(m_device);
 	m_blitToSwapChainPass->addWaitSemaphore(m_raytracingPass->signalSemaphore(), m_raytracingPass->pipelineStage());
 	
+	/////////////////////////////////////////////
+	// UI
+	/////////////////////////////////////////////
 	m_guiSystem = new ImGuiSystem(m_device);
 	m_guiSystem->addWaitSemaphore(m_blitToSwapChainPass->signalSemaphore(), m_blitToSwapChainPass->pipelineStage());
 	if (!m_guiSystem->init()) return false;
