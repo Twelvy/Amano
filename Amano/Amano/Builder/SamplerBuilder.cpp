@@ -25,7 +25,7 @@ SamplerBuilder::SamplerBuilder()
 	m_samplerInfo.maxLod = 0.0f;
 }
 
-SamplerBuilder& SamplerBuilder::setMaxLoad(float maxLod) {
+SamplerBuilder& SamplerBuilder::setMaxLod(float maxLod) {
 	m_samplerInfo.maxLod = maxLod;
 
 	return *this;

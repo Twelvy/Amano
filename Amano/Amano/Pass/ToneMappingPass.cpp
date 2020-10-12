@@ -50,7 +50,7 @@ bool ToneMappingPass::init() {
 	// create a sampler for the textures
 	SamplerBuilder nearestSamplerBuilder;
 	nearestSamplerBuilder
-		.setMaxLoad(1)
+		.setMaxLod(0)
 		.setFilter(VK_FILTER_NEAREST, VK_FILTER_NEAREST);
 	m_nearestSampler = nearestSamplerBuilder.build(*m_device);
 

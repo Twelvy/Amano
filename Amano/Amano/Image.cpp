@@ -332,7 +332,7 @@ bool Image::createSampler(VkFilter magFilter, VkFilter minFilter) {
 	SamplerBuilder samplerBuilder;
 	samplerBuilder
 		.setFilter(magFilter, minFilter)
-		.setMaxLoad((float)m_mipLevels);
+		.setMaxLod((float)(m_mipLevels - 1));
 	m_imageSampler = samplerBuilder.build(*m_device);
 
 	return true;

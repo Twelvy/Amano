@@ -81,7 +81,7 @@ bool RaytracingShadowPass::init(std::vector<Mesh*>& meshes) {
 	// create a sampler for the depth texture
 	SamplerBuilder samplerBuilder;
 	samplerBuilder
-		.setMaxLoad(1)
+		.setMaxLod(0)
 		.setFilter(VK_FILTER_NEAREST, VK_FILTER_NEAREST);
 	m_nearestSampler = samplerBuilder.build(*m_device);
 

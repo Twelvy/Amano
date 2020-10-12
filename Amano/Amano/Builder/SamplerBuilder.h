@@ -10,7 +10,7 @@ class SamplerBuilder {
 public:
 	SamplerBuilder();
 
-	SamplerBuilder& setMaxLoad(float maxLoad);
+	SamplerBuilder& setMaxLod(float maxLod);
 	SamplerBuilder& setFilter(VkFilter magFilter, VkFilter minFilter);
 
 	VkSampler build(Device& device);
