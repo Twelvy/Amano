@@ -15,7 +15,6 @@ DeferredLightingPass::DeferredLightingPass(Device* device)
 	, m_pipeline{ VK_NULL_HANDLE }
 	, m_descriptorSet{ VK_NULL_HANDLE }
 	, m_nearestSampler{ VK_NULL_HANDLE }
-	, m_linearSampler{ VK_NULL_HANDLE }
 	, m_uniformBuffer(device)
 	, m_lightUniformBuffer(device)
 	, m_outputImage{ nullptr }
@@ -31,7 +30,6 @@ DeferredLightingPass::~DeferredLightingPass() {
 	vkDestroyPipelineLayout(m_device->handle(), m_pipelineLayout, nullptr);
 	vkDestroyPipeline(m_device->handle(), m_pipeline, nullptr);
 	vkDestroySampler(m_device->handle(), m_nearestSampler, nullptr);
-	vkDestroySampler(m_device->handle(), m_linearSampler, nullptr);
 	delete m_environmentImage;
 }
 
@@ -44,7 +42,8 @@ bool DeferredLightingPass::init() {
 		"assets/textures/Yokohama3/negy.jpg",
 		"assets/textures/Yokohama3/posz.jpg",
 		"assets/textures/Yokohama3/negz.jpg",
-		*m_device->getQueue(QueueType::eGraphics));
+		*m_device->getQueue(QueueType::eGraphics),
+		false);
 	m_environmentImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	DescriptorSetLayoutBuilder computeDescriptorSetLayoutbuilder;
@@ -75,11 +74,6 @@ bool DeferredLightingPass::init() {
 		.setMaxLoad(1)
 		.setFilter(VK_FILTER_NEAREST, VK_FILTER_NEAREST);
 	m_nearestSampler = nearestSamplerBuilder.build(*m_device);
-
-	// create a sampler for the environment cubemap
-	SamplerBuilder linearSamplerBuilder;
-	linearSamplerBuilder.setMaxLoad((float)m_environmentImage->getMipLevels());
-	m_linearSampler = linearSamplerBuilder.build(*m_device);
 
 	return true;
 }
@@ -187,7 +181,7 @@ bool DeferredLightingPass::createDescriptorSet(Image* albedoImage, Image* normal
 		.addImage(m_nearestSampler, albedoImage->viewHandle(), 0)
 		.addImage(m_nearestSampler, normalImage->viewHandle(), 1)
 		.addImage(m_nearestSampler, depthImage->viewHandle(), 2)
-		.addImage(m_linearSampler, m_environmentImage->viewHandle(), 3)
+		.addImage(m_environmentImage->sampler(), m_environmentImage->viewHandle(), 3)
 		.addUniformBuffer(m_uniformBuffer.getBuffer(), m_uniformBuffer.getSize(), 4)
 		.addUniformBuffer(m_lightUniformBuffer.getBuffer(), m_lightUniformBuffer.getSize(), 5)
 		.addStorageImage(m_outputImage->viewHandle(), 6);

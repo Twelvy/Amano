@@ -47,7 +47,6 @@ private:
 	VkPipeline m_pipeline;
 	VkDescriptorSet m_descriptorSet;
 	VkSampler m_nearestSampler;
-	VkSampler m_linearSampler;
 	UniformBuffer<RayParams> m_uniformBuffer;
 	UniformBuffer<LightInformation> m_lightUniformBuffer;
 	Image* m_outputImage;

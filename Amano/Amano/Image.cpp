@@ -89,7 +89,7 @@ bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkForm
 	return true;
 }
 
-bool Image::create2D(const std::string& filename, Queue& queue) {
+bool Image::create2D(const std::string& filename, Queue& queue, bool generateMips) {
 	m_type = Type::eTexture2D;
 	int texWidth, texHeight, texChannels;
 	stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -100,7 +100,7 @@ bool Image::create2D(const std::string& filename, Queue& queue) {
 	}
 
 	VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * 4);  // TODO: compute correctly
-	m_mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+	m_mipLevels = generateMips ? static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1 : 1;
 	m_width = static_cast<uint32_t>(texWidth);
 	m_height = static_cast<uint32_t>(texHeight);
 
@@ -137,7 +137,10 @@ bool Image::create2D(const std::string& filename, Queue& queue) {
 	copyBufferToImage(queue, stagingBuffer, 0);
 	//transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
 	//transitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, mipLevels);
-	generateMipmaps(queue, 0);
+	if (generateMips)
+		generateMipmaps(queue, 0);
+	else
+		transitionLayoutInternal(queue, 0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	m_device->destroyBuffer(stagingBuffer);
 	m_device->freeDeviceMemory(stagingBufferMemory);
@@ -192,7 +195,8 @@ bool Image::createCube(
 	const std::string& filenameNegY,
 	const std::string& filenamePosZ,
 	const std::string& filenameNegZ,
-	Queue& queue) {
+	Queue& queue,
+	bool generateMips) {
 
 	m_type = Type::eTextureCube;
 
@@ -232,7 +236,7 @@ bool Image::createCube(
 
 		if (i == 0) {
 			imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * texelSize);
-			m_mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+			m_mipLevels = generateMips ? static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1 : 1;
 			m_width = static_cast<uint32_t>(texWidth);
 			m_height = static_cast<uint32_t>(texHeight);
 
@@ -278,7 +282,10 @@ bool Image::createCube(
 		copyBufferToImage(queue, stagingBuffer, i);
 
 		// TODO: it is maybe possible to generate the mips for all the faces at the same time
-		generateMipmaps(queue, i);
+		if (generateMips)
+			generateMipmaps(queue, i);
+		else
+			transitionLayoutInternal(queue, i, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 
 	m_device->destroyBuffer(stagingBuffer);

@@ -32,7 +32,7 @@ public:
 	VkSampler sampler() const { return m_imageSampler; }
 
 	bool create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
-	bool create2D(const std::string& filename, Queue& queue);
+	bool create2D(const std::string& filename, Queue& queue, bool generateMips);
 
 	bool createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
 	bool createCube(
@@ -42,7 +42,8 @@ public:
 		const std::string& filenameNegY,
 		const std::string& filenamePosZ,
 		const std::string& filenameNegZ,
-		Queue& queue);
+		Queue& queue,
+		bool generateMips);
 
 	bool createView(VkImageAspectFlags aspectFlags);
 	bool createSampler(VkFilter magFilter, VkFilter minFilter);
