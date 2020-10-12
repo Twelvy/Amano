@@ -215,9 +215,9 @@ bool Image::createCube(
 		void* pixels = nullptr;
 		int texelSize = 0;  // TODO: compute correctly
 		if (stbi_is_hdr(filenames[i]->c_str())) {
-			m_format = VK_FORMAT_R32G32B32_SFLOAT;
-			texelSize = 12;
-			pixels = stbi_loadf(filenames[i]->c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb);
+			m_format = VK_FORMAT_R32G32B32A32_SFLOAT;
+			texelSize = 16;
+			pixels = stbi_loadf(filenames[i]->c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		}
 		else {
 			m_format = VK_FORMAT_R8G8B8A8_SRGB;
