@@ -153,8 +153,14 @@ void Application::createSizeDependentObjects() {
 
 		m_gBufferPass->recreateOnRenderTargetResized(m_width, m_height, m_mesh, m_modelTexture);
 		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->albedoImage(), m_gBufferPass->normalImage(), m_gBufferPass->depthImage());
-		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->depthImage(), m_gBufferPass->normalImage(), m_deferredLightingPass->outputImage());
+
+		if (m_raytracingPass != nullptr)
+			m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->depthImage(), m_gBufferPass->normalImage(), m_deferredLightingPass->outputImage());
+#ifdef AMANO_USE_RAYTRACING
 		m_toneMappingPass->recreateOnRenderTargetResized(m_width, m_height, m_raytracingPass->outputImage());
+#else
+		m_toneMappingPass->recreateOnRenderTargetResized(m_width, m_height, m_deferredLightingPass->outputImage());
+#endif
 		m_blitToSwapChainPass->recreateOnRenderTargetResized(m_width, m_height, m_toneMappingPass->outputImage());
 		m_guiSystem->recreateOnRenderTargetResized(m_width, m_height);
 	}
@@ -233,18 +239,24 @@ bool Application::init() {
 	/////////////////////////////////////////////
 	// Raytracing
 	/////////////////////////////////////////////
+#ifdef AMANO_USE_RAYTRACING
 	std::vector<Mesh*> meshes;
 	meshes.push_back(m_mesh);
 	m_raytracingPass = new RaytracingShadowPass(m_device);
 	m_raytracingPass->addWaitSemaphore(m_deferredLightingPass->signalSemaphore(), m_deferredLightingPass->pipelineStage());
 	if (!m_raytracingPass->init(meshes))
 		return false;
+#endif
 
 	/////////////////////////////////////////////
 	// Tone mapping
 	/////////////////////////////////////////////
 	m_toneMappingPass = new ToneMappingPass(m_device);
+#ifdef AMANO_USE_RAYTRACING
 	m_toneMappingPass->addWaitSemaphore(m_raytracingPass->signalSemaphore(), m_raytracingPass->pipelineStage());
+#else
+	m_toneMappingPass->addWaitSemaphore(m_deferredLightingPass->signalSemaphore(), m_deferredLightingPass->pipelineStage());
+#endif
 	if (!m_toneMappingPass->init())
 		return false;
 

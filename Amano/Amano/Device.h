@@ -1,5 +1,7 @@
 #pragma once
 
+//#define AMANO_USE_RAYTRACING
+
 #include "glfw.h"
 #include "Extensions.h"
 #include "Queue.h"
