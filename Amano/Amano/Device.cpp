@@ -774,13 +774,13 @@ bool Device::createDescriptorPool() {
 	uint32_t swapChainImagesCount = static_cast<uint32_t>(m_swapChainImages.size());
 	std::array<VkDescriptorPoolSize, 4> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = swapChainImagesCount;
+	poolSizes[0].descriptorCount = 100;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = swapChainImagesCount;
+	poolSizes[1].descriptorCount = 100;
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	poolSizes[2].descriptorCount = swapChainImagesCount;
+	poolSizes[2].descriptorCount = 100;
 	poolSizes[3].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
-	poolSizes[3].descriptorCount = swapChainImagesCount;
+	poolSizes[3].descriptorCount = 100;
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -788,7 +788,7 @@ bool Device::createDescriptorPool() {
 	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = static_cast<uint32_t>(m_swapChainImages.size());
+	poolInfo.maxSets = 100 * static_cast<uint32_t>(m_swapChainImages.size());  // 100 per frame
 
 	if (vkCreateDescriptorPool(m_device, &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS) {
 		std::cerr << "failed to create descriptor pool!" << std::endl;
