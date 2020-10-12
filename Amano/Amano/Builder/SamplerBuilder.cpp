@@ -10,9 +10,9 @@ SamplerBuilder::SamplerBuilder()
 	m_samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	m_samplerInfo.magFilter = VK_FILTER_LINEAR;
 	m_samplerInfo.minFilter = VK_FILTER_LINEAR;
-	m_samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	m_samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	m_samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	m_samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	m_samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	m_samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	m_samplerInfo.anisotropyEnable = VK_TRUE;
 	m_samplerInfo.maxAnisotropy = 16.0f;
 	m_samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
