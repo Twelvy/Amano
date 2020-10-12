@@ -5,7 +5,7 @@
 
 layout(location = 0) rayPayloadNV vec4 payload;
 layout(binding = 0, set = 0) uniform accelerationStructureNV acc;
-layout(binding = 1, rgba8) uniform image2D outputImage;
+layout(binding = 1, rgba32f) uniform image2D outputImage;
 layout(binding = 2, std140, set = 0) uniform rayParams
 {
     mat4 viewInverse;
