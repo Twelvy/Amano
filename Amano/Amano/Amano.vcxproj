@@ -189,6 +189,7 @@
     <ClCompile Include="Pass\ImGuiSystem.cpp" />
     <ClCompile Include="Pass\Pass.cpp" />
     <ClCompile Include="Pass\RaytracingShadowPass.cpp" />
+    <ClCompile Include="Pass\ToneMappingPass.cpp" />
     <ClCompile Include="Queue.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -227,6 +228,7 @@
     <ClInclude Include="Pass\ImGuiSystem.h" />
     <ClInclude Include="Pass\Pass.h" />
     <ClInclude Include="Pass\RaytracingShadowPass.h" />
+    <ClInclude Include="Pass\ToneMappingPass.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="Ubo.h" />
     <ClInclude Include="UniformBuffer.h" />

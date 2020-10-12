@@ -43,7 +43,7 @@ void main() {
 
     if (depth >= 1.0) {
         vec3 rayDir = normalize(worldPosition - rayOrigin);
-        outColor = texture(environmentSampler, rayDir);
+        outColor = texture(environmentSampler, rayDir.xzy);
     }
     else {
         vec4 albedo = texture(albedoSampler, uv);

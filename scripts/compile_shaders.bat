@@ -7,6 +7,8 @@ SET VULKAN_SDK_GLSLLANG=%VULKAN_SDK%/Bin/glslangValidator.exe
 
 %VULKAN_SDK_SPV_COMPILER% ../shaders/deferred_lighting.comp -o ../compiled_shaders/deferred_lighting.spv
 
+%VULKAN_SDK_SPV_COMPILER% ../shaders/tonemapping.comp -o ../compiled_shaders/tonemapping.spv
+
 %VULKAN_SDK_GLSLLANG% -V ../shaders/raygen.rgen      -o ../compiled_shaders/raygen.spv
 %VULKAN_SDK_GLSLLANG% -V ../shaders/closesthit.rchit -o ../compiled_shaders/closesthit.spv
 %VULKAN_SDK_GLSLLANG% -V ../shaders/miss.rmiss       -o ../compiled_shaders/miss.spv

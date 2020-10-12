@@ -1,0 +1,27 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+//layout(local_size_variable) in;
+
+layout(binding = 0) uniform sampler2D colorSampler;
+layout(binding = 1, rgba8) uniform image2D outputImage;
+
+void main() {
+    // get image size
+    ivec2 outputImageSize = imageSize(outputImage);
+    if (gl_GlobalInvocationID.x >= outputImageSize.x || gl_GlobalInvocationID.y >= outputImageSize.y)
+        return;
+
+    // get uv
+    vec2 uv = (vec2(gl_GlobalInvocationID.xy) + vec2(0.5)) / vec2(outputImageSize);
+    
+    vec4 color = texture(colorSampler, uv);
+    
+    // tonemap
+    // do nothing for now
+
+    // store
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    imageStore(outputImage, pixel, color);
+}

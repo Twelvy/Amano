@@ -16,6 +16,7 @@
 #include "Pass/GBufferPass.h"
 #include "Pass/ImGuiSystem.h"
 #include "Pass/RaytracingShadowPass.h"
+#include "Pass/ToneMappingPass.h"
 
 namespace Amano {
 
@@ -83,6 +84,9 @@ private:
 
 	// for raytracing
 	RaytracingShadowPass* m_raytracingPass;
+
+	// for tone mapping
+	ToneMappingPass* m_toneMappingPass;
 
 	// for blit
 	BlitToSwapChainPass* m_blitToSwapChainPass;

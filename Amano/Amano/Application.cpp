@@ -54,11 +54,9 @@ Application::Application()
 	, m_imageAvailableSemaphore{ VK_NULL_HANDLE }
 	, m_inFlightFence{ VK_NULL_HANDLE }
 	, m_gBufferPass{ nullptr }
-	// deferred lighting
 	, m_deferredLightingPass{ nullptr }
-	// raytracing
 	, m_raytracingPass{ nullptr }
-	// blit
+	, m_toneMappingPass{ nullptr }
 	, m_blitToSwapChainPass{ nullptr }
 	// light information
 	, m_lightPosition(1.0f, 1.0f, 1.0f)
@@ -70,6 +68,7 @@ Application::~Application() {
 	cleanSizedependentObjects();
 
 	delete m_blitToSwapChainPass;
+	delete m_toneMappingPass;
 	delete m_raytracingPass;
 	delete m_deferredLightingPass;
 	delete m_gBufferPass;
@@ -155,7 +154,8 @@ void Application::createSizeDependentObjects() {
 		m_gBufferPass->recreateOnRenderTargetResized(m_width, m_height, m_mesh, m_modelTexture);
 		m_deferredLightingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->albedoImage(), m_gBufferPass->normalImage(), m_gBufferPass->depthImage());
 		m_raytracingPass->recreateOnRenderTargetResized(m_width, m_height, m_gBufferPass->depthImage(), m_gBufferPass->normalImage(), m_deferredLightingPass->outputImage());
-		m_blitToSwapChainPass->recreateOnRenderTargetResized(m_width, m_height, m_raytracingPass->outputImage());
+		m_toneMappingPass->recreateOnRenderTargetResized(m_width, m_height, m_raytracingPass->outputImage());
+		m_blitToSwapChainPass->recreateOnRenderTargetResized(m_width, m_height, m_toneMappingPass->outputImage());
 		m_guiSystem->recreateOnRenderTargetResized(m_width, m_height);
 	}
 }
@@ -167,6 +167,8 @@ void Application::cleanSizedependentObjects() {
 		m_deferredLightingPass->cleanOnRenderTargetResized();
 	if (m_raytracingPass != nullptr)
 		m_raytracingPass->cleanOnRenderTargetResized();
+	if (m_toneMappingPass != nullptr)
+		m_toneMappingPass->cleanOnRenderTargetResized();
 	if (m_blitToSwapChainPass != nullptr)
 		m_blitToSwapChainPass->cleanOnRenderTargetResized();
 	if (m_guiSystem != nullptr)
@@ -239,10 +241,18 @@ bool Application::init() {
 		return false;
 
 	/////////////////////////////////////////////
+	// Tone mapping
+	/////////////////////////////////////////////
+	m_toneMappingPass = new ToneMappingPass(m_device);
+	m_toneMappingPass->addWaitSemaphore(m_raytracingPass->signalSemaphore(), m_raytracingPass->pipelineStage());
+	if (!m_toneMappingPass->init())
+		return false;
+
+	/////////////////////////////////////////////
 	// Blit
 	/////////////////////////////////////////////
 	m_blitToSwapChainPass = new BlitToSwapChainPass(m_device);
-	m_blitToSwapChainPass->addWaitSemaphore(m_raytracingPass->signalSemaphore(), m_raytracingPass->pipelineStage());
+	m_blitToSwapChainPass->addWaitSemaphore(m_toneMappingPass->signalSemaphore(), m_toneMappingPass->pipelineStage());
 	
 	/////////////////////////////////////////////
 	// UI
@@ -308,7 +318,11 @@ void Application::drawFrame() {
 		return;
 
 	// submit raytracing
-	if (!m_raytracingPass->submit())
+	if (m_raytracingPass != nullptr && !m_raytracingPass->submit())
+		return;
+
+	// submit tone mapping
+	if (!m_toneMappingPass->submit())
 		return;
 
 	// submit blit

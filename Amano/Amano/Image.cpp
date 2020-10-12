@@ -159,7 +159,7 @@ bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFo
 	imageInfo.extent.height = m_height;
 	imageInfo.extent.depth = 1;
 	imageInfo.mipLevels = m_mipLevels;
-	imageInfo.arrayLayers =6;
+	imageInfo.arrayLayers = 6;
 	imageInfo.format = m_format;
 	imageInfo.tiling = tiling;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -195,7 +195,6 @@ bool Image::createCube(
 	Queue& queue) {
 
 	m_type = Type::eTextureCube;
-	m_format = VK_FORMAT_R8G8B8A8_SRGB;
 
 	const std::string* filenames[6] = {
 		&filenamePosX,
@@ -212,7 +211,19 @@ bool Image::createCube(
 
 	for (int i = 0; i < 6; ++i) {
 		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load(filenames[i]->c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+		void* pixels = nullptr;
+		int texelSize = 0;  // TODO: compute correctly
+		if (stbi_is_hdr(filenames[i]->c_str())) {
+			m_format = VK_FORMAT_R32G32B32_SFLOAT;
+			texelSize = 12;
+			pixels = stbi_loadf(filenames[i]->c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb);
+		}
+		else {
+			m_format = VK_FORMAT_R8G8B8A8_SRGB;
+			texelSize = 4;
+			pixels = stbi_load(filenames[i]->c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		}
 
 		if (!pixels) {
 			std::cerr << "failed to load texture image!" << std::endl;
@@ -220,7 +231,7 @@ bool Image::createCube(
 		}
 
 		if (i == 0) {
-			imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * 4);  // TODO: compute correctly
+			imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * texelSize);
 			m_mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 			m_width = static_cast<uint32_t>(texWidth);
 			m_height = static_cast<uint32_t>(texHeight);
