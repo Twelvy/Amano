@@ -349,7 +349,8 @@ void Image::transitionLayoutInternal(Queue& queue, uint32_t layer, VkImageLayout
 	transition
 		.setImage(0, m_image)
 		.setLevelCount(0, m_mipLevels)
-		.setLayer(0, layer)
+		.setBaseLayer(0, layer)
+		.setLayerCount(0, 1)
 		.setLayouts(0, oldLayout, newLayout);
 
 	if (isDepthFormat(m_format)) {
@@ -452,7 +453,7 @@ void Image::generateMipmaps(Queue& queue, uint32_t layer) {
 	TransitionImageBarrierBuilder<1> transition;
 	transition
 		.setImage(0, m_image)
-		.setLayer(0, layer);
+		.setBaseLayer(0, layer);
 
 	int32_t mipWidth = static_cast<int32_t>(m_width);
 	int32_t mipHeight = static_cast<int32_t>(m_height);

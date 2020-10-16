@@ -46,23 +46,23 @@ public:
 		return *this;
 	}
 
-	TransitionImageBarrierBuilder& setLayer(uint32_t index, uint32_t layer) {
+	TransitionImageBarrierBuilder& setBaseLayer(uint32_t index, uint32_t layer) {
 		m_barriers[index].subresourceRange.baseArrayLayer = layer;
 		return *this;
 	}
 
-	TransitionImageBarrierBuilder& setBaseLevel(uint32_t index, uint32_t level) {
-		m_barriers[index].subresourceRange.baseMipLevel = level;
-		return *this;
-	}
-
-	TransitionImageBarrierBuilder& setLevelCount(uint32_t index, uint32_t levelCount) {
-		m_barriers[index].subresourceRange.levelCount = levelCount;
+	TransitionImageBarrierBuilder& setLayerCount(uint32_t index, uint32_t layerCount) {
+		m_barriers[index].subresourceRange.layerCount = layerCount;
 		return *this;
 	}
 
 	TransitionImageBarrierBuilder& setBaseMipLevel(uint32_t index, uint32_t mipLevel) {
 		m_barriers[index].subresourceRange.baseMipLevel = mipLevel;
+		return *this;
+	}
+
+	TransitionImageBarrierBuilder& setLevelCount(uint32_t index, uint32_t levelCount) {
+		m_barriers[index].subresourceRange.levelCount = levelCount;
 		return *this;
 	}
 
