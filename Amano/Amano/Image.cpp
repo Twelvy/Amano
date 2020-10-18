@@ -24,6 +24,20 @@ bool isDepthFormat(VkFormat format) {
 		|| format == VK_FORMAT_D32_SFLOAT_S8_UINT;
 }
 
+
+VkImageAspectFlags getAspect(VkFormat format) {
+	VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+	if (isDepthFormat(format)) {
+		aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+		if (hasStencilComponent(format))
+			aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	}
+	else {
+		aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+	}
+	return aspect;
+}
+
 size_t formatPixelSize(VkFormat format) {
 	switch (format)
 	{
@@ -393,7 +407,7 @@ bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkForm
 
 	vkBindImageMemory(m_device->handle(), m_image, m_imageMemory, 0);
 
-	return true;
+	return createView(getAspect(m_format));
 }
 
 bool Image::create2D(const std::string& filename, Queue& queue, bool generateMips) {
@@ -648,7 +662,7 @@ bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFo
 
 	vkBindImageMemory(m_device->handle(), m_image, m_imageMemory, 0);
 
-	return true;
+	return createView(getAspect(m_format));
 }
 
 bool Image::createCube(
@@ -992,17 +1006,8 @@ void Image::transitionLayoutInternal(Queue& queue, uint32_t layer, VkImageLayout
 		.setLevelCount(0, m_mipLevels)
 		.setBaseLayer(0, layer)
 		.setLayerCount(0, 1)
-		.setLayouts(0, oldLayout, newLayout);
-
-	if (isDepthFormat(m_format)) {
-		if (hasStencilComponent(m_format))
-			transition.setAspectMask(0, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
-		else 
-			transition.setAspectMask(0, VK_IMAGE_ASPECT_DEPTH_BIT);
-	}
-	else {
-		transition.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT);
-	}
+		.setLayouts(0, oldLayout, newLayout)
+		.setAspectMask(0, getAspect(m_format));
 
 	VkPipelineStageFlags sourceStage;
 	VkPipelineStageFlags destinationStage;

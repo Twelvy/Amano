@@ -179,7 +179,6 @@ void RaytracingShadowPass::createOutputImage(uint32_t width, uint32_t height) {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_outputImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 	m_outputImage->transitionLayout(*m_device->getQueue(QueueType::eGraphics), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 

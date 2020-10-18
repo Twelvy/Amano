@@ -217,7 +217,6 @@ bool Application::init() {
 	// load the texture of the model
 	m_modelTexture = new Image(m_device);
 	m_modelTexture->create2D("assets/textures/white.png", *m_device->getQueue(QueueType::eGraphics), true);
-	m_modelTexture->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 	m_modelTexture->createSampler(VK_FILTER_LINEAR, VK_FILTER_LINEAR);
 
 	/////////////////////////////////////////////

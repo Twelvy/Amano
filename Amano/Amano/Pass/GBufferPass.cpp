@@ -202,7 +202,6 @@ void GBufferPass::createGBufferImages(uint32_t width, uint32_t height) {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_depthImage->createView(VK_IMAGE_ASPECT_DEPTH_BIT);
 	m_depthImage->transitionLayout(*pQueue, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	// create the images for the GBuffer
@@ -215,7 +214,6 @@ void GBufferPass::createGBufferImages(uint32_t width, uint32_t height) {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_albedoImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 	m_albedoImage->transitionLayout(*pQueue, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	m_normalImage = new Image(m_device);
@@ -227,7 +225,6 @@ void GBufferPass::createGBufferImages(uint32_t width, uint32_t height) {
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	m_normalImage->createView(VK_IMAGE_ASPECT_COLOR_BIT);
 	m_normalImage->transitionLayout(*pQueue, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	// create the framebuffer
