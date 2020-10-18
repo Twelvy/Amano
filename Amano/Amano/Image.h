@@ -45,6 +45,9 @@ public:
 		Queue& queue,
 		bool generateMips);
 
+	// only loads DDS files with RGBA32f formats inside
+	bool createCube(const std::string& filename, Queue& queue);
+
 	bool createView(VkImageAspectFlags aspectFlags);
 	bool createSampler(VkFilter magFilter, VkFilter minFilter);
 

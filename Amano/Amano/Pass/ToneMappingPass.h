@@ -11,7 +11,7 @@ namespace Amano {
 
 // This class performs a simle tone mapping
 // TEMPORARY: to work correctly, it expects the following image states:
-//   -outputImage: VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT
+//   - outputImage: VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT
 //   - colorImage: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_READ_BIT
 // After submitting, the images states are the same
 class ToneMappingPass : public Pass {

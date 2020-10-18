@@ -24,6 +24,313 @@ bool isDepthFormat(VkFormat format) {
 		|| format == VK_FORMAT_D32_SFLOAT_S8_UINT;
 }
 
+size_t formatPixelSize(VkFormat format) {
+	switch (format)
+	{
+	case VK_FORMAT_UNDEFINED:
+		return 0;
+	case VK_FORMAT_R4G4_UNORM_PACK8:
+		return 1;
+	case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
+	case VK_FORMAT_B4G4R4A4_UNORM_PACK16:
+	case VK_FORMAT_R5G6B5_UNORM_PACK16:
+	case VK_FORMAT_B5G6R5_UNORM_PACK16:
+	case VK_FORMAT_R5G5B5A1_UNORM_PACK16:
+	case VK_FORMAT_B5G5R5A1_UNORM_PACK16:
+	case VK_FORMAT_A1R5G5B5_UNORM_PACK16:
+		return 2;
+	case VK_FORMAT_R8_UNORM:
+	case VK_FORMAT_R8_SNORM:
+	case VK_FORMAT_R8_USCALED:
+	case VK_FORMAT_R8_SSCALED:
+	case VK_FORMAT_R8_UINT:
+	case VK_FORMAT_R8_SINT:
+	case VK_FORMAT_R8_SRGB:
+		return 1;
+	case VK_FORMAT_R8G8_UNORM:
+	case VK_FORMAT_R8G8_SNORM:
+	case VK_FORMAT_R8G8_USCALED:
+	case VK_FORMAT_R8G8_SSCALED:
+	case VK_FORMAT_R8G8_UINT:
+	case VK_FORMAT_R8G8_SINT:
+	case VK_FORMAT_R8G8_SRGB:
+		return 2;
+	case VK_FORMAT_R8G8B8_UNORM:
+	case VK_FORMAT_R8G8B8_SNORM:
+	case VK_FORMAT_R8G8B8_USCALED:
+	case VK_FORMAT_R8G8B8_SSCALED:
+	case VK_FORMAT_R8G8B8_UINT:
+	case VK_FORMAT_R8G8B8_SINT:
+	case VK_FORMAT_R8G8B8_SRGB:
+	case VK_FORMAT_B8G8R8_UNORM:
+	case VK_FORMAT_B8G8R8_SNORM:
+	case VK_FORMAT_B8G8R8_USCALED:
+	case VK_FORMAT_B8G8R8_SSCALED:
+	case VK_FORMAT_B8G8R8_UINT:
+	case VK_FORMAT_B8G8R8_SINT:
+	case VK_FORMAT_B8G8R8_SRGB:
+		return 3;
+	case VK_FORMAT_R8G8B8A8_UNORM:
+	case VK_FORMAT_R8G8B8A8_SNORM:
+	case VK_FORMAT_R8G8B8A8_USCALED:
+	case VK_FORMAT_R8G8B8A8_SSCALED:
+	case VK_FORMAT_R8G8B8A8_UINT:
+	case VK_FORMAT_R8G8B8A8_SINT:
+	case VK_FORMAT_R8G8B8A8_SRGB:
+	case VK_FORMAT_B8G8R8A8_UNORM:
+	case VK_FORMAT_B8G8R8A8_SNORM:
+	case VK_FORMAT_B8G8R8A8_USCALED:
+	case VK_FORMAT_B8G8R8A8_SSCALED:
+	case VK_FORMAT_B8G8R8A8_UINT:
+	case VK_FORMAT_B8G8R8A8_SINT:
+	case VK_FORMAT_B8G8R8A8_SRGB:
+	case VK_FORMAT_A8B8G8R8_UNORM_PACK32:
+	case VK_FORMAT_A8B8G8R8_SNORM_PACK32:
+	case VK_FORMAT_A8B8G8R8_USCALED_PACK32:
+	case VK_FORMAT_A8B8G8R8_SSCALED_PACK32:
+	case VK_FORMAT_A8B8G8R8_UINT_PACK32:
+	case VK_FORMAT_A8B8G8R8_SINT_PACK32:
+	case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
+	case VK_FORMAT_A2R10G10B10_UNORM_PACK32:
+	case VK_FORMAT_A2R10G10B10_SNORM_PACK32:
+	case VK_FORMAT_A2R10G10B10_USCALED_PACK32:
+	case VK_FORMAT_A2R10G10B10_SSCALED_PACK32:
+	case VK_FORMAT_A2R10G10B10_UINT_PACK32:
+	case VK_FORMAT_A2R10G10B10_SINT_PACK32:
+	case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
+	case VK_FORMAT_A2B10G10R10_SNORM_PACK32:
+	case VK_FORMAT_A2B10G10R10_USCALED_PACK32:
+	case VK_FORMAT_A2B10G10R10_SSCALED_PACK32:
+	case VK_FORMAT_A2B10G10R10_UINT_PACK32:
+	case VK_FORMAT_A2B10G10R10_SINT_PACK32:
+		return 4;
+	case VK_FORMAT_R16_UNORM:
+	case VK_FORMAT_R16_SNORM:
+	case VK_FORMAT_R16_USCALED:
+	case VK_FORMAT_R16_SSCALED:
+	case VK_FORMAT_R16_UINT:
+	case VK_FORMAT_R16_SINT:
+	case VK_FORMAT_R16_SFLOAT:
+		return 2;
+	case VK_FORMAT_R16G16_UNORM:
+	case VK_FORMAT_R16G16_SNORM:
+	case VK_FORMAT_R16G16_USCALED:
+	case VK_FORMAT_R16G16_SSCALED:
+	case VK_FORMAT_R16G16_UINT:
+	case VK_FORMAT_R16G16_SINT:
+	case VK_FORMAT_R16G16_SFLOAT:
+		return 4;
+	case VK_FORMAT_R16G16B16_UNORM:
+	case VK_FORMAT_R16G16B16_SNORM:
+	case VK_FORMAT_R16G16B16_USCALED:
+	case VK_FORMAT_R16G16B16_SSCALED:
+	case VK_FORMAT_R16G16B16_UINT:
+	case VK_FORMAT_R16G16B16_SINT:
+	case VK_FORMAT_R16G16B16_SFLOAT:
+		return 6;
+	case VK_FORMAT_R16G16B16A16_UNORM:
+	case VK_FORMAT_R16G16B16A16_SNORM:
+	case VK_FORMAT_R16G16B16A16_USCALED:
+	case VK_FORMAT_R16G16B16A16_SSCALED:
+	case VK_FORMAT_R16G16B16A16_UINT:
+	case VK_FORMAT_R16G16B16A16_SINT:
+	case VK_FORMAT_R16G16B16A16_SFLOAT:
+		return 8;
+	case VK_FORMAT_R32_UINT:
+	case VK_FORMAT_R32_SINT:
+	case VK_FORMAT_R32_SFLOAT:
+		return 4;
+	case VK_FORMAT_R32G32_UINT:
+	case VK_FORMAT_R32G32_SINT:
+	case VK_FORMAT_R32G32_SFLOAT:
+		return 8;
+	case VK_FORMAT_R32G32B32_UINT:
+	case VK_FORMAT_R32G32B32_SINT:
+	case VK_FORMAT_R32G32B32_SFLOAT:
+		return 12;
+	case VK_FORMAT_R32G32B32A32_UINT:
+	case VK_FORMAT_R32G32B32A32_SINT:
+	case VK_FORMAT_R32G32B32A32_SFLOAT:
+		return 16;
+	case VK_FORMAT_R64_UINT:
+	case VK_FORMAT_R64_SINT:
+	case VK_FORMAT_R64_SFLOAT:
+		return 8;
+	case VK_FORMAT_R64G64_UINT:
+	case VK_FORMAT_R64G64_SINT:
+	case VK_FORMAT_R64G64_SFLOAT:
+		return 16;
+	case VK_FORMAT_R64G64B64_UINT:
+	case VK_FORMAT_R64G64B64_SINT:
+	case VK_FORMAT_R64G64B64_SFLOAT:
+		return 24;
+	case VK_FORMAT_R64G64B64A64_UINT:
+	case VK_FORMAT_R64G64B64A64_SINT:
+	case VK_FORMAT_R64G64B64A64_SFLOAT:
+		return 32;
+	case VK_FORMAT_B10G11R11_UFLOAT_PACK32:
+	case VK_FORMAT_E5B9G9R9_UFLOAT_PACK32:
+		return 4;
+	case VK_FORMAT_D16_UNORM:
+		return 2;
+	case VK_FORMAT_X8_D24_UNORM_PACK32:
+	case VK_FORMAT_D32_SFLOAT:
+		return 4;
+	case VK_FORMAT_S8_UINT:
+		return 1;
+	case VK_FORMAT_D16_UNORM_S8_UINT:
+		return 3;
+	case VK_FORMAT_D24_UNORM_S8_UINT:
+		return 4;
+	case VK_FORMAT_D32_SFLOAT_S8_UINT:
+		return 5;
+	case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
+	case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
+	case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+	case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+	case VK_FORMAT_BC2_UNORM_BLOCK:
+	case VK_FORMAT_BC2_SRGB_BLOCK:
+	case VK_FORMAT_BC3_UNORM_BLOCK:
+	case VK_FORMAT_BC3_SRGB_BLOCK:
+	case VK_FORMAT_BC4_UNORM_BLOCK:
+	case VK_FORMAT_BC4_SNORM_BLOCK:
+	case VK_FORMAT_BC5_UNORM_BLOCK:
+	case VK_FORMAT_BC5_SNORM_BLOCK:
+	case VK_FORMAT_BC6H_UFLOAT_BLOCK:
+	case VK_FORMAT_BC6H_SFLOAT_BLOCK:
+	case VK_FORMAT_BC7_UNORM_BLOCK:
+	case VK_FORMAT_BC7_SRGB_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK:
+	case VK_FORMAT_EAC_R11_UNORM_BLOCK:
+	case VK_FORMAT_EAC_R11_SNORM_BLOCK:
+	case VK_FORMAT_EAC_R11G11_UNORM_BLOCK:
+	case VK_FORMAT_EAC_R11G11_SNORM_BLOCK:
+	case VK_FORMAT_ASTC_4x4_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_4x4_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_5x4_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_5x4_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_5x5_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_5x5_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_6x5_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_6x5_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_6x6_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_6x6_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_8x5_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_8x5_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_8x6_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_8x6_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_8x8_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_8x8_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_10x5_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_10x5_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_10x6_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_10x6_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_10x8_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_10x8_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_10x10_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_10x10_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_12x10_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_12x10_SRGB_BLOCK:
+	case VK_FORMAT_ASTC_12x12_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_12x12_SRGB_BLOCK:
+	case VK_FORMAT_G8B8G8R8_422_UNORM:
+	case VK_FORMAT_B8G8R8G8_422_UNORM:
+	case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
+	case VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
+	case VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM:
+	case VK_FORMAT_G8_B8R8_2PLANE_422_UNORM:
+	case VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM:
+	case VK_FORMAT_R10X6_UNORM_PACK16:
+	case VK_FORMAT_R10X6G10X6_UNORM_2PACK16:
+	case VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16:
+	case VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16:
+	case VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16:
+	case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16:
+	case VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16:
+	case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16:
+	case VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16:
+	case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16:
+	case VK_FORMAT_R12X4_UNORM_PACK16:
+	case VK_FORMAT_R12X4G12X4_UNORM_2PACK16:
+	case VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16:
+	case VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16:
+	case VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16:
+	case VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16:
+	case VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16:
+	case VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16:
+	case VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16:
+	case VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16:
+	case VK_FORMAT_G16B16G16R16_422_UNORM:
+	case VK_FORMAT_B16G16R16G16_422_UNORM:
+	case VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM:
+	case VK_FORMAT_G16_B16R16_2PLANE_420_UNORM:
+	case VK_FORMAT_G16_B16_R16_3PLANE_422_UNORM:
+	case VK_FORMAT_G16_B16R16_2PLANE_422_UNORM:
+	case VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM:
+	case VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+	case VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+	case VK_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+	case VK_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+	case VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+	case VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+	case VK_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+	case VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG:
+	case VK_FORMAT_ASTC_4x4_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_5x4_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_5x5_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_6x5_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_6x6_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_8x5_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_8x6_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_8x8_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_10x5_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_10x6_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_10x8_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_10x10_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_12x10_SFLOAT_BLOCK_EXT:
+	case VK_FORMAT_ASTC_12x12_SFLOAT_BLOCK_EXT:
+	default:
+		return 0;  // not supported for now
+	}
+}
+
+// temporary
+typedef unsigned long       DWORD;
+typedef unsigned int        UINT;
+
+struct DDS_PIXELFORMAT {
+	DWORD dwSize;
+	DWORD dwFlags;
+	DWORD dwFourCC;
+	DWORD dwRGBBitCount;
+	DWORD dwRBitMask;
+	DWORD dwGBitMask;
+	DWORD dwBBitMask;
+	DWORD dwABitMask;
+};
+
+typedef struct {
+	DWORD           dwSize;
+	DWORD           dwFlags;
+	DWORD           dwHeight;
+	DWORD           dwWidth;
+	DWORD           dwPitchOrLinearSize;
+	DWORD           dwDepth;
+	DWORD           dwMipMapCount;
+	DWORD           dwReserved1[11];
+	DDS_PIXELFORMAT ddspf;
+	DWORD           dwCaps;
+	DWORD           dwCaps2;
+	DWORD           dwCaps3;
+	DWORD           dwCaps4;
+	DWORD           dwReserved2;
+} DDS_HEADER;
+
 }
 
 namespace Amano {
@@ -99,10 +406,11 @@ bool Image::create2D(const std::string& filename, Queue& queue, bool generateMip
 		return false;
 	}
 
-	VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * 4);  // TODO: compute correctly
 	m_mipLevels = generateMips ? static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1 : 1;
 	m_width = static_cast<uint32_t>(texWidth);
 	m_height = static_cast<uint32_t>(texHeight);
+	m_format = VK_FORMAT_R8G8B8A8_UNORM;
+	VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * formatPixelSize(m_format));  // TODO: compute correctly
 
 	VkBuffer stagingBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
@@ -120,8 +428,6 @@ bool Image::create2D(const std::string& filename, Queue& queue, bool generateMip
 	vkUnmapMemory(m_device->handle(), stagingBufferMemory);
 
 	stbi_image_free(pixels);
-
-	m_format = VK_FORMAT_R8G8B8A8_SRGB;
 
 	if (!create2D(
 		static_cast<uint32_t>(texWidth),
@@ -217,15 +523,12 @@ bool Image::createCube(
 		int texWidth, texHeight, texChannels;
 
 		void* pixels = nullptr;
-		int texelSize = 0;  // TODO: compute correctly
 		if (stbi_is_hdr(filenames[i]->c_str())) {
 			m_format = VK_FORMAT_R32G32B32A32_SFLOAT;
-			texelSize = 16;
 			pixels = stbi_loadf(filenames[i]->c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		}
 		else {
 			m_format = VK_FORMAT_R8G8B8A8_SRGB;
-			texelSize = 4;
 			pixels = stbi_load(filenames[i]->c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		}
 
@@ -235,7 +538,7 @@ bool Image::createCube(
 		}
 
 		if (i == 0) {
-			imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * texelSize);
+			imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * formatPixelSize(m_format));
 			m_mipLevels = generateMips ? static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1 : 1;
 			m_width = static_cast<uint32_t>(texWidth);
 			m_height = static_cast<uint32_t>(texHeight);
@@ -290,6 +593,154 @@ bool Image::createCube(
 
 	m_device->destroyBuffer(stagingBuffer);
 	m_device->freeDeviceMemory(stagingBufferMemory);
+
+	return true;
+}
+
+bool Image::createCube(const std::string& filename, Queue& queue) {
+	FILE* f = NULL;
+	fopen_s(&f, filename.c_str(), "rb");
+	if (f == NULL)
+		return false;
+
+	DWORD dwMagic;
+	fread(&dwMagic, sizeof(DWORD), 1, f);
+
+	// see https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds-pguide
+	if (dwMagic != 0x20534444) {
+		fclose(f);
+		return false;
+	}
+
+	DDS_HEADER header;
+	fread(&header, sizeof(DDS_HEADER), 1, f);
+
+	// 116 is DXGI_FORMAT_R32G32B32A32_FLOAT
+	if (header.ddspf.dwFourCC != 116) {
+		fclose(f);
+		return false;
+	}
+
+	if (header.ddspf.dwABitMask == 0xff000000) {
+		// format is D3DFMT_A32B32G32R32F - not supported for now
+		fclose(f);
+		return false;
+	}
+
+	m_width = static_cast<uint32_t>(header.dwWidth);
+	m_height = static_cast<uint32_t>(header.dwHeight);
+	m_mipLevels = static_cast<uint32_t>(header.dwMipMapCount);
+	m_format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	if (!createCube(
+		m_width,
+		m_height,
+		m_mipLevels,
+		m_format,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+		return false;
+
+	// transition everything to dst transfer
+	{
+		VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
+		TransitionImageBarrierBuilder<1> transition;
+		transition
+			.setImage(0, m_image)
+			.setBaseMipLevel(0, 0)
+			.setLevelCount(0, m_mipLevels)
+			.setBaseLayer(0, 0)
+			.setLayerCount(0, 6)
+			.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+			.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+			.execute(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		queue.endSingleTimeCommands(commandBuffer);
+	}
+
+	VkDeviceSize fullImageSize = static_cast<VkDeviceSize>(m_width * m_height * formatPixelSize(m_format));
+	uint8_t* pixels = new uint8_t[fullImageSize];
+	VkBuffer stagingBuffer = VK_NULL_HANDLE;
+	VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
+	if (!m_device->createBufferAndMemory(
+		fullImageSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer,
+		stagingBufferMemory))
+		return false;
+
+	for (uint32_t i = 0; i < 6; ++i) {
+		uint32_t width = m_width;
+		uint32_t height = m_height;
+		for (uint32_t mip = 0; mip < m_mipLevels; ++mip) {
+			VkDeviceSize imageSize = static_cast<VkDeviceSize>(width * height * formatPixelSize(m_format));
+			size_t read = 0;
+			while (read < imageSize) {
+				read += fread(pixels + read, sizeof(uint8_t), imageSize - read, f);
+			}
+
+			void* data;
+			vkMapMemory(m_device->handle(), stagingBufferMemory, 0, imageSize, 0, &data);
+			memcpy(data, pixels, static_cast<size_t>(imageSize));
+			vkUnmapMemory(m_device->handle(), stagingBufferMemory);
+
+			VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
+
+			VkBufferImageCopy region{};
+			region.bufferOffset = 0;
+			region.bufferRowLength = 0;
+			region.bufferImageHeight = 0;
+
+			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			region.imageSubresource.mipLevel = mip;
+			region.imageSubresource.baseArrayLayer = i;
+			region.imageSubresource.layerCount = 1;
+
+			region.imageOffset = { 0, 0, 0 };
+			region.imageExtent = {
+				width,
+				height,
+				1
+			};
+
+			vkCmdCopyBufferToImage(
+				commandBuffer,
+				stagingBuffer,
+				m_image,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				1,
+				&region
+			);
+
+			queue.endSingleTimeCommands(commandBuffer);
+			width /= 2;
+			height /= 2;
+		}
+
+	}
+
+	m_device->destroyBuffer(stagingBuffer);
+	m_device->freeDeviceMemory(stagingBufferMemory);
+
+	delete[] pixels;
+	fclose(f);
+
+	// transition everything to shader read
+	{
+		VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
+		TransitionImageBarrierBuilder<1> transition;
+		transition
+			.setImage(0, m_image)
+			.setBaseLayer(0, 0)
+			.setLayerCount(0, 6)
+			.setBaseMipLevel(0, 0)
+			.setLevelCount(0, m_mipLevels)
+			.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+			.setLayouts(0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			.setAccessMasks(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+			.execute(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+		queue.endSingleTimeCommands(commandBuffer);
+	}
 
 	return true;
 }
