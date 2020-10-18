@@ -743,7 +743,7 @@ bool Image::createCube(
 					.setBaseMipLevel(0, 0)
 					.setLevelCount(0, m_mipLevels)
 					.setBaseLayer(0, 0)
-					.setLayerCount(0, 1)
+					.setLayerCount(0, 6)
 					.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
 					.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
 					.execute(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
