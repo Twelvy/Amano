@@ -720,6 +720,21 @@ bool Image::createCube(
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
 				return false;
 
+			// transition everything to dst transfer
+			{
+				VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
+				TransitionImageBarrierBuilder<1> transition;
+				transition
+					.setImage(0, m_image)
+					.setBaseMipLevel(0, 0)
+					.setLevelCount(0, m_mipLevels)
+					.setBaseLayer(0, 0)
+					.setLayerCount(0, 1)
+					.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+					.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+					.execute(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+				queue.endSingleTimeCommands(commandBuffer);
+			}
 		}
 		else if (static_cast<uint32_t>(texWidth) != m_width || static_cast<uint32_t>(texHeight) != m_height) {
 			stbi_image_free(pixels);
@@ -737,15 +752,27 @@ bool Image::createCube(
 
 		stbi_image_free(pixels);
 
-		// transition all the mip level of face i
-		transitionLayoutInternal(queue, i, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		copyBufferToImage(queue, stagingBuffer, i);
 
 		// TODO: it is maybe possible to generate the mips for all the faces at the same time
 		if (generateMips)
 			generateMipmaps(queue, i);
-		else
-			transitionLayoutInternal(queue, i, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
+
+	// transition all to shader read
+	if (!generateMips) {
+		VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
+		TransitionImageBarrierBuilder<1> transition;
+		transition
+			.setImage(0, m_image)
+			.setBaseMipLevel(0, 0)
+			.setLevelCount(0, m_mipLevels)
+			.setBaseLayer(0, 0)
+			.setLayerCount(0, 6)
+			.setLayouts(0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+			.execute(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);  // top of pipe?
+		queue.endSingleTimeCommands(commandBuffer);
 	}
 
 	m_device->destroyBuffer(stagingBuffer);
