@@ -462,10 +462,10 @@ bool Image::create2D(const std::string& filename, Queue& queue) {
 	if (f == NULL)
 		return false;
 
+	// see https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds-pguide
 	DWORD dwMagic;
 	fread(&dwMagic, sizeof(DWORD), 1, f);
 
-	// see https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds-pguide
 	if (dwMagic != 0x20534444) {
 		fclose(f);
 		return false;
@@ -787,10 +787,10 @@ bool Image::createCube(const std::string& filename, Queue& queue) {
 	if (f == NULL)
 		return false;
 
+	// see https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds-pguide
 	DWORD dwMagic;
 	fread(&dwMagic, sizeof(DWORD), 1, f);
 
-	// see https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds-pguide
 	if (dwMagic != 0x20534444) {
 		fclose(f);
 		return false;
