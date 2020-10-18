@@ -454,6 +454,163 @@ bool Image::create2D(const std::string& filename, Queue& queue, bool generateMip
 	return true;
 }
 
+bool Image::create2D(const std::string& filename, Queue& queue) {
+	m_type = Type::eTexture2D;
+
+	FILE* f = NULL;
+	fopen_s(&f, filename.c_str(), "rb");
+	if (f == NULL)
+		return false;
+
+	DWORD dwMagic;
+	fread(&dwMagic, sizeof(DWORD), 1, f);
+
+	// see https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds-pguide
+	if (dwMagic != 0x20534444) {
+		fclose(f);
+		return false;
+	}
+
+	DDS_HEADER header;
+	fread(&header, sizeof(DDS_HEADER), 1, f);
+
+	// TODO: support more formats
+	if (header.ddspf.dwFourCC == 116) {
+		// 116 is DXGI_FORMAT_R32G32B32A32_FLOAT
+		m_format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	}
+	else if (header.ddspf.dwFourCC == 113) {
+		// 116 is DXGI_FORMAT_R16G16B16A16_FLOAT
+		m_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+	}
+	else {
+		fclose(f);
+		return false;
+	}
+
+	// TODO: weird test, verify the documentation
+	if (header.ddspf.dwRBitMask != 0x00ff0000 ||
+		header.ddspf.dwGBitMask != 0x0000ff00 ||
+		header.ddspf.dwBBitMask != 0x000000ff ||
+		header.ddspf.dwABitMask != 0x00000000) {
+		// format isn't RGBA - not supported for now
+		fclose(f);
+		return false;
+	}
+
+	m_width = static_cast<uint32_t>(header.dwWidth);
+	m_height = static_cast<uint32_t>(header.dwHeight);
+	m_mipLevels = static_cast<uint32_t>(header.dwMipMapCount);
+	if (!create2D(
+		m_width,
+		m_height,
+		m_mipLevels,
+		m_format,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+		return false;
+
+	VkDeviceSize fullImageSize = static_cast<VkDeviceSize>(m_width * m_height * formatPixelSize(m_format));
+	uint8_t* pixels = new uint8_t[fullImageSize];
+	VkBuffer stagingBuffer = VK_NULL_HANDLE;
+	VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
+	if (!m_device->createBufferAndMemory(
+		fullImageSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer,
+		stagingBufferMemory))
+		return false;
+
+	// transition everything to dst transfer
+	{
+		VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
+		TransitionImageBarrierBuilder<1> transition;
+		transition
+			.setImage(0, m_image)
+			.setBaseMipLevel(0, 0)
+			.setLevelCount(0, m_mipLevels)
+			.setBaseLayer(0, 0)
+			.setLayerCount(0, 1)
+			.setLayouts(0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+			.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+			.execute(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		queue.endSingleTimeCommands(commandBuffer);
+	}
+
+	uint32_t width = m_width;
+	uint32_t height = m_height;
+	for (uint32_t mip = 0; mip < m_mipLevels; ++mip) {
+		VkDeviceSize imageSize = static_cast<VkDeviceSize>(width * height * formatPixelSize(m_format));
+		size_t read = 0;
+		while (read < imageSize) {
+			read += fread(pixels + read, sizeof(uint8_t), imageSize - read, f);
+		}
+
+		void* data;
+		vkMapMemory(m_device->handle(), stagingBufferMemory, 0, imageSize, 0, &data);
+		memcpy(data, pixels, static_cast<size_t>(imageSize));
+		vkUnmapMemory(m_device->handle(), stagingBufferMemory);
+
+		VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
+
+		VkBufferImageCopy region{};
+		region.bufferOffset = 0;
+		region.bufferRowLength = 0;
+		region.bufferImageHeight = 0;
+
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.mipLevel = mip;
+		region.imageSubresource.baseArrayLayer = 0;
+		region.imageSubresource.layerCount = 1;
+
+		region.imageOffset = { 0, 0, 0 };
+		region.imageExtent = {
+			width,
+			height,
+			1
+		};
+
+		vkCmdCopyBufferToImage(
+			commandBuffer,
+			stagingBuffer,
+			m_image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&region
+		);
+
+		queue.endSingleTimeCommands(commandBuffer);
+		width /= 2;
+		height /= 2;
+	}
+
+	m_device->destroyBuffer(stagingBuffer);
+	m_device->freeDeviceMemory(stagingBufferMemory);
+
+	delete[] pixels;
+	fclose(f);
+
+	// transition everything to shader read
+	{
+		VkCommandBuffer commandBuffer = queue.beginSingleTimeCommands();
+		TransitionImageBarrierBuilder<1> transition;
+		transition
+			.setImage(0, m_image)
+			.setLevelCount(0, m_mipLevels)
+			.setBaseLayer(0, 0)
+			.setLayerCount(0, 1)
+			.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
+			.setLayouts(0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			.setAccessMasks(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+			.execute(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+		queue.endSingleTimeCommands(commandBuffer);
+	}
+
+	return true;
+}
+
 bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
 	m_type = Type::eTextureCube;
 	m_width = width;
@@ -615,14 +772,21 @@ bool Image::createCube(const std::string& filename, Queue& queue) {
 	DDS_HEADER header;
 	fread(&header, sizeof(DDS_HEADER), 1, f);
 
-	// 116 is DXGI_FORMAT_R32G32B32A32_FLOAT
-	if (header.ddspf.dwFourCC != 116) {
+	if (header.ddspf.dwFourCC == 116) {
+		// 116 is DXGI_FORMAT_R32G32B32A32_FLOAT
+		m_format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	}
+	else {
 		fclose(f);
 		return false;
 	}
 
-	if (header.ddspf.dwABitMask == 0xff000000) {
-		// format is D3DFMT_A32B32G32R32F - not supported for now
+	// TODO: weird test, verify the documentation
+	if (header.ddspf.dwRBitMask != 0x00ff0000 ||
+		header.ddspf.dwGBitMask != 0x0000ff00 ||
+		header.ddspf.dwBBitMask != 0x000000ff ||
+		header.ddspf.dwABitMask != 0x00000000) {
+		// format isn't RGBA - not supported for now
 		fclose(f);
 		return false;
 	}
@@ -630,7 +794,6 @@ bool Image::createCube(const std::string& filename, Queue& queue) {
 	m_width = static_cast<uint32_t>(header.dwWidth);
 	m_height = static_cast<uint32_t>(header.dwHeight);
 	m_mipLevels = static_cast<uint32_t>(header.dwMipMapCount);
-	m_format = VK_FORMAT_R32G32B32A32_SFLOAT;
 	if (!createCube(
 		m_width,
 		m_height,
