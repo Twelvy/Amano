@@ -19,7 +19,7 @@ void main() {
     vec4 color = texture(colorSampler, uv);
     
     // tonemap
-    // do nothing for now
+    color.rgb = color.rgb / (color.rgb + 1.0);
 
     // store
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
