@@ -27,6 +27,7 @@ public:
 	uint32_t getWidth() const { return m_width; }
 	uint32_t getHeight() const { return m_height; }
 	uint32_t getMipLevels() const { return m_mipLevels; }
+	VkFormat getFormat() const { return m_format; }
 	VkImage handle() const { return m_image; }
 	VkImageView viewHandle() const { return m_imageView; }
 	VkSampler sampler() const { return m_imageSampler; }
@@ -59,6 +60,7 @@ private:
 	void transitionLayoutInternal(Queue& queue, uint32_t layer, VkImageLayout oldLayout, VkImageLayout newLayout);
 	void copyBufferToImage(Queue& queue, VkBuffer buffer, uint32_t layer);
 	void generateMipmaps(Queue& queue, uint32_t layer);
+
 private:
 	Device* m_device;
 	Type m_type;

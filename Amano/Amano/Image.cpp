@@ -443,13 +443,17 @@ bool Image::create2D(const std::string& filename, Queue& queue, bool generateMip
 
 	stbi_image_free(pixels);
 
+	VkImageUsageFlags usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	if (generateMips)
+		usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
 	if (!create2D(
 		static_cast<uint32_t>(texWidth),
 		static_cast<uint32_t>(texHeight),
 		m_mipLevels,
 		m_format,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		usageFlags,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
 		return false;
 
@@ -723,6 +727,10 @@ bool Image::createCube(
 				stagingBufferMemory))
 				return false;
 
+			VkImageUsageFlags usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+			if (generateMips)
+				usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
 			// once we have the size, create the texture
 			if (!createCube(
 				m_width,
@@ -730,7 +738,7 @@ bool Image::createCube(
 				m_mipLevels,
 				m_format,
 				VK_IMAGE_TILING_OPTIMAL,
-				VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				usageFlags,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
 				return false;
 
@@ -841,7 +849,7 @@ bool Image::createCube(const std::string& filename, Queue& queue) {
 		m_mipLevels,
 		m_format,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
 		return false;
 
