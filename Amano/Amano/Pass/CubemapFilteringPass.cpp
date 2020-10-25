@@ -101,7 +101,7 @@ CubemapDiffuseFilteringPass::CubemapDiffuseFilteringPass(Device* device)
 }
 
 bool CubemapDiffuseFilteringPass::init() {
-    return CubemapFilteringPass::init("compiled_shaders/diffuse_filter.spv");
+    return CubemapFilteringPass::init("compiled_shaders/diffuse_filter.comp.spv");
 }
 
 }

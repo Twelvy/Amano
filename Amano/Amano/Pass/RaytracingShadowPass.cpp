@@ -58,9 +58,9 @@ bool RaytracingShadowPass::init(std::vector<Mesh*>& meshes) {
 	// load the shaders and create the pipeline
 	RaytracingPipelineBuilder raytracingPipelineBuilder(m_device);
 	raytracingPipelineBuilder
-		.addShader("compiled_shaders/shadow_raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addShader("compiled_shaders/shadow_miss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
-		.addShader("compiled_shaders/shadow_closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+		.addShader("compiled_shaders/shadow_raygen.rgen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
+		.addShader("compiled_shaders/shadow_miss.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
+		.addShader("compiled_shaders/shadow_closesthit.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
 	m_pipeline = raytracingPipelineBuilder.build(m_pipelineLayout, 1);
 
 	// create the shader binding table associated to this pipeline

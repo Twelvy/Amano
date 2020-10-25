@@ -65,8 +65,8 @@ bool GBufferPass::init() {
 	// create graphics pipeline
 	GraphicsPipelineBuilder pipelineBuilder(m_device);
 	pipelineBuilder
-		.addShader("compiled_shaders/gbufferv.spv", VK_SHADER_STAGE_VERTEX_BIT)
-		.addShader("compiled_shaders/gbufferf.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
+		.addShader("compiled_shaders/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT)
+		.addShader("compiled_shaders/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
 		.setRasterizer(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 	m_pipeline = pipelineBuilder.build(m_pipelineLayout, m_renderPass, 0, 2, true);
 

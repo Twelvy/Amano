@@ -64,7 +64,7 @@ bool DeferredLightingPass::init() {
 	// load the shaders and create the pipeline
 	ComputePipelineBuilder computePipelineBuilder(m_device);
 	computePipelineBuilder
-		.addShader("compiled_shaders/deferred_lighting.spv", VK_SHADER_STAGE_COMPUTE_BIT);
+		.addShader("compiled_shaders/deferred_lighting.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT);
 	m_pipeline = computePipelineBuilder.build(m_pipelineLayout);
 
 	// create a sampler for the textures
