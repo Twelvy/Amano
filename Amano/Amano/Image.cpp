@@ -643,7 +643,7 @@ bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFo
 	imageInfo.format = m_format;
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	imageInfo.usage = usage;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
