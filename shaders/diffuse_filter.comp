@@ -1,0 +1,155 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+
+// This shaders filters a cubemap to get its diffuse part
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+//layout(local_size_variable) in;
+
+layout(binding = 0) uniform samplerCube inputSampler;
+layout(binding = 1, rgba16f) uniform imageCube outputImage;
+
+//////////////////////////////////////////////////////
+// CONSTANTS
+//////////////////////////////////////////////////////
+const float PI = 3.14159265358979;
+
+const vec3 FACE_BASES[6*2] = {
+    // X face
+    vec3(0.0, 1.0, 0.0),
+    vec3(0.0, 0.0, 1.0),
+    // -X face
+    vec3(0.0, 1.0, 0.0),
+    vec3(0.0, 0.0, 1.0),
+    // Y face
+    vec3(0.0, 0.0, 1.0),
+    vec3(1.0, 0.0, 0.0),
+    // -Y face
+    vec3(0.0, 0.0, 1.0),
+    vec3(1.0, 0.0, 0.0),
+    // Z face
+    vec3(1.0, 0.0, 0.0),
+    vec3(0.0, 1.0, 0.0),
+    // -Z face
+    vec3(1.0, 0.0, 0.0),
+    vec3(0.0, 1.0, 0.0)
+};
+
+// cubemap arrangement
+//        _____
+//       |     |
+//       |  Y  |
+//  _____|_____|___________
+// |     |     |     |     |
+// | -X  |  Z  |  X  | -Z  |
+// |_____|_____|_____|_____|
+//       |     |
+//       | -Y  |
+//       |_____|
+
+// this simulates a cube of size 1 at the origin
+const vec3 FACES_MAIN_DIRECTION[6 * 3] = {
+    // X face: u is -z, v is -y
+    vec3(0.0,  0.0, -1.0),
+    vec3(0.0, -1.0,  0.0),
+    vec3(0.5,  0.0,  0.0),
+    // -X face: u is z, v is -y
+    vec3( 0.0,  0.0, 1.0),
+    vec3( 0.0, -1.0, 0.0),
+    vec3(-0.5,  0.0, 0.0),
+    // Y face: u is x, v is z
+    vec3(1.0, 0.0, 0.0),
+    vec3(0.0, 0.0, 1.0),
+    vec3(0.0, 0.5, 0.0),
+    // -Y face: u is x, v is -z
+    vec3(1.0,  0.0,  0.0),
+    vec3(0.0,  0.0, -1.0),
+    vec3(0.0, -0.5,  0.0),
+    // Z face: u is x, v is -y
+    vec3(1.0,  0.0, 0.0),
+    vec3(0.0, -1.0, 0.0),
+    vec3(0.0,  0.0, 0.5),
+    // -Z face: u is -x, v is -y
+    vec3(-1.0,  0.0,  0.0),
+    vec3( 0.0, -1.0,  0.0),
+    vec3( 0.0,  0.0, -0.5)
+};
+
+//////////////////////////////////////////////////////
+// FUNCTIONS
+//////////////////////////////////////////////////////
+
+// https://developer.nvidia.com/gpugems/gpugems3/part-iii-rendering/chapter-20-gpu-based-importance-sampling
+
+// http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html
+float radicalInverse_VdC(uint bits) {
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+// Get the ith Hammersley point of a set of count
+vec2 hammersley2D(uint i, uint count) {
+    return vec2(float(i)/float(count), radicalInverse_VdC(i));
+}
+
+vec3 hemisphereSample_uniform(float u, float v) {
+    float phi = v * 2.0 * PI;
+    float cosTheta = 1.0 - u;
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+    return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+ }
+
+void buildBase(vec3 N, out vec3 U, out vec3 V, int faceIndex) {
+    U = FACE_BASES[2 * faceIndex];
+    V = FACE_BASES[2 * faceIndex] + 1;
+
+    V = normalize(cross(N, U));
+    U = normalize(cross(V, N));
+}
+
+vec3 pixelToDirection(ivec3 pixel, float size) {
+    vec2 uv = (vec2(pixel.xy) + vec2(0.5, 0.5)) / vec2(size, size) - vec2(0.5, 0.5);  // [-0.5, 0.5] range
+    vec3 direction =   uv.x * FACES_MAIN_DIRECTION[3 * pixel.z]
+                     + uv.y * FACES_MAIN_DIRECTION[3 * pixel.z + 1]
+                     + FACES_MAIN_DIRECTION[3 * pixel.z + 2];
+    return normalize(direction);
+}
+
+//////////////////////////////////////////////////////
+// MAIN FUNCTION
+//////////////////////////////////////////////////////
+void main() {
+    // ensure that we are working within the bounds of the image
+    int outputImageSize = imageSize(outputImage).x;  // x and y are the same in a cubemap
+    if (gl_GlobalInvocationID.x >= outputImageSize || gl_GlobalInvocationID.y >= outputImageSize)
+        return;
+
+    ivec3 pixel = ivec3(gl_GlobalInvocationID);
+    vec3 N = pixelToDirection(pixel, outputImageSize);
+
+    // build the local base of the main direction N
+    vec3 U;
+    vec3 V;
+    buildBase(N, U, V, pixel.z);
+    vec3 outputColor = vec3(0.0);
+    
+    const uint SAMPLES_COUNT = 4096;
+    for (uint i = 0; i < SAMPLES_COUNT; ++i) {
+        vec2 s = hammersley2D(i, SAMPLES_COUNT);
+        vec3 samplingCoord = hemisphereSample_uniform(s.x, s.y);
+        vec3 samplingDirection = samplingCoord.x * U + samplingCoord.y * V + samplingCoord.z * N;
+
+        float NdotL = samplingCoord.z;  // U and V are normal to N
+        if (NdotL >= 0.0) {
+            outputColor += NdotL * texture(inputSampler, samplingDirection).rgb;
+            // TODO: clamp incoming intensity?
+        }
+    }
+
+    outputColor /= float(SAMPLES_COUNT);
+    imageStore(outputImage, pixel, vec4(outputColor, 1.0));
+}

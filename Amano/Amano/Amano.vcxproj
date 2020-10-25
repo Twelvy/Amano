@@ -184,6 +184,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="Pass\BlitToSwapChainPass.cpp" />
+    <ClCompile Include="Pass\CubemapFilteringPass.cpp" />
     <ClCompile Include="Pass\DeferredLightingPass.cpp" />
     <ClCompile Include="Pass\GBufferPass.cpp" />
     <ClCompile Include="Pass\ImGuiSystem.cpp" />
@@ -223,6 +224,7 @@
     <ClInclude Include="InputSystem.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Pass\BlitToSwapChainPass.h" />
+    <ClInclude Include="Pass\CubemapFilteringPass.h" />
     <ClInclude Include="Pass\DeferredLightingPass.h" />
     <ClInclude Include="Pass\GBufferPass.h" />
     <ClInclude Include="Pass\ImGuiSystem.h" />
