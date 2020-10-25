@@ -105,7 +105,7 @@ vec3 hemisphereSample_uniform(float u, float v) {
 
 void buildBase(vec3 N, out vec3 U, out vec3 V, int faceIndex) {
     U = FACE_BASES[2 * faceIndex];
-    V = FACE_BASES[2 * faceIndex] + 1;
+    V = FACE_BASES[2 * faceIndex + 1];
 
     V = normalize(cross(N, U));
     U = normalize(cross(V, N));
