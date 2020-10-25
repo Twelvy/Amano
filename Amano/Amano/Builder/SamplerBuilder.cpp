@@ -13,12 +13,12 @@ SamplerBuilder::SamplerBuilder()
 	m_samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	m_samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	m_samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	m_samplerInfo.anisotropyEnable = VK_TRUE;
-	m_samplerInfo.maxAnisotropy = 16.0f;
+	m_samplerInfo.anisotropyEnable = VK_TRUE;  // TODO: query that
+	m_samplerInfo.maxAnisotropy = 16.0f;       // TODO: query that
 	m_samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	m_samplerInfo.unnormalizedCoordinates = VK_FALSE;
 	m_samplerInfo.compareEnable = VK_FALSE;
-	m_samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	m_samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
 	m_samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	m_samplerInfo.mipLodBias = 0.0f;
 	m_samplerInfo.minLod = 0.0f;

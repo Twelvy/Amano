@@ -370,7 +370,7 @@ Image::~Image() {
 	vkDestroySampler(m_device->handle(), m_imageSampler, nullptr);
 }
 
-bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
+bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usage) {
 	m_type = Type::eTexture2D;
 	m_width = width;
 	m_height = height;
@@ -386,7 +386,7 @@ bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkForm
 	imageInfo.mipLevels = m_mipLevels;
 	imageInfo.arrayLayers = 1;
 	imageInfo.format = m_format;
-	imageInfo.tiling = tiling;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageInfo.usage = usage;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -401,7 +401,7 @@ bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkForm
 	VkMemoryRequirements memRequirements;
 	vkGetImageMemoryRequirements(m_device->handle(), m_image, &memRequirements);
 
-	m_imageMemory = m_device->allocateMemory(memRequirements, properties);
+	m_imageMemory = m_device->allocateMemory(memRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (m_imageMemory == VK_NULL_HANDLE)
 		return false;
 
@@ -452,9 +452,7 @@ bool Image::create2D(const std::string& filename, Queue& queue, bool generateMip
 		static_cast<uint32_t>(texHeight),
 		m_mipLevels,
 		m_format,
-		VK_IMAGE_TILING_OPTIMAL,
-		usageFlags,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+		usageFlags))
 		return false;
 
 	transitionLayout(queue, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -524,9 +522,7 @@ bool Image::create2D(const std::string& filename, Queue& queue) {
 		m_height,
 		m_mipLevels,
 		m_format,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT))
 		return false;
 
 	VkDeviceSize fullImageSize = static_cast<VkDeviceSize>(m_width * m_height * formatPixelSize(m_format));
@@ -629,7 +625,7 @@ bool Image::create2D(const std::string& filename, Queue& queue) {
 	return true;
 }
 
-bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
+bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usage) {
 	m_type = Type::eTextureCube;
 	m_width = width;
 	m_height = height;
@@ -645,9 +641,9 @@ bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFo
 	imageInfo.mipLevels = m_mipLevels;
 	imageInfo.arrayLayers = 6;
 	imageInfo.format = m_format;
-	imageInfo.tiling = tiling;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = usage;
+	imageInfo.usage = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
@@ -660,7 +656,7 @@ bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFo
 	VkMemoryRequirements memRequirements;
 	vkGetImageMemoryRequirements(m_device->handle(), m_image, &memRequirements);
 
-	m_imageMemory = m_device->allocateMemory(memRequirements, properties);
+	m_imageMemory = m_device->allocateMemory(memRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (m_imageMemory == VK_NULL_HANDLE)
 		return false;
 
@@ -737,9 +733,7 @@ bool Image::createCube(
 				m_height,
 				m_mipLevels,
 				m_format,
-				VK_IMAGE_TILING_OPTIMAL,
-				usageFlags,
-				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+				usageFlags))
 				return false;
 
 			// transition everything to dst transfer
@@ -848,9 +842,7 @@ bool Image::createCube(const std::string& filename, Queue& queue) {
 		m_height,
 		m_mipLevels,
 		m_format,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT))
 		return false;
 
 	// transition everything to dst transfer

@@ -32,12 +32,12 @@ public:
 	VkImageView viewHandle() const { return m_imageView; }
 	VkSampler sampler() const { return m_imageSampler; }
 
-	bool create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
+	bool create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usage);
 	bool create2D(const std::string& filename, Queue& queue, bool generateMips);
 	// only loads DDS files
 	bool create2D(const std::string& filename, Queue& queue);
 
-	bool createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
+	bool createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usage);
 	bool createCube(
 		const std::string& filenamePosX,
 		const std::string& filenameNegX,
