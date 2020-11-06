@@ -4,8 +4,6 @@
 #include "../Builder/DescriptorSetBuilder.h"
 #include "../Builder/DescriptorSetLayoutBuilder.h"
 #include "../Builder/PipelineLayoutBuilder.h"
-#include "../Builder/SamplerBuilder.h"
-#include "../Builder/TransitionImageBarrierBuilder.h"
 
 namespace Amano {
 
@@ -102,6 +100,19 @@ CubemapDiffuseFilteringPass::CubemapDiffuseFilteringPass(Device* device)
 
 bool CubemapDiffuseFilteringPass::init() {
     return CubemapFilteringPass::init("compiled_shaders/diffuse_filter.comp.spv");
+}
+
+/////////////////////////////////////////////////////
+// CubemapSpecularFilteringPass
+/////////////////////////////////////////////////////
+
+CubemapSpecularFilteringPass::CubemapSpecularFilteringPass(Device* device)
+    : CubemapFilteringPass(device)
+{
+}
+
+bool CubemapSpecularFilteringPass::init() {
+    return CubemapFilteringPass::init("compiled_shaders/specular_filter.comp.spv");
 }
 
 }

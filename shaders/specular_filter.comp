@@ -5,12 +5,17 @@
 
 // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
 
-// This shaders filters a cubemap to get its diffuse part
+// This shaders filters a cubemap to get its specular part
+// this uses the GGX model with...
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+//layout(local_size_variable) in;
 
 layout(binding = 0) uniform samplerCube inputSampler;
-layout(binding = 1, rgba16f) uniform imageCube outputImage;
+layout(binding = 1, rgba32f) uniform imageCube outputImage;
+layout(binding = 2) uniform filterInformation {
+    float mipRoughness;
+};
 
 //////////////////////////////////////////////////////
 // MAIN FUNCTION
@@ -29,7 +34,8 @@ void main() {
     vec3 V;
     buildBase(N, U, V, pixel.z);
     vec3 outputColor = vec3(0.0);
-    
+    float totalWeight = 0.0;
+
     const uint SAMPLES_COUNT = 4096;
     for (uint i = 0; i < SAMPLES_COUNT; ++i) {
         vec2 s = hammersley2D(i, SAMPLES_COUNT);
@@ -38,13 +44,11 @@ void main() {
 
         float NdotL = samplingCoord.z;  // U and V are normal to N
         if (NdotL >= 0.0) {
-            vec3 sampleColor = texture(inputSampler, samplingDirection).rgb;
-            // TODO: clamp incoming intensity?
-            //sampleColor = min(sampleColor, 5.0);
-            outputColor += sampleColor;
+            outputColor += NdotL * texture(inputSampler, samplingDirection).rgb;
+            totalWeight += NdotL;
         }
     }
 
-    outputColor /= float(SAMPLES_COUNT);
+    outputColor /= max(totalWeight, 0.0001);  // avoid dividing by 0
     imageStore(outputImage, pixel, vec4(outputColor, 1.0));
 }

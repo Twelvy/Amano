@@ -1,9 +1,8 @@
 #pragma once
-#pragma once
 
 #include "../Device.h"
-#include "../Ubo.h"
-#include "../UniformBuffer.h"
+
+#include <string>
 
 namespace Amano {
 
@@ -44,6 +43,14 @@ class CubemapDiffuseFilteringPass : public CubemapFilteringPass {
 public:
     CubemapDiffuseFilteringPass(Device* device);
     ~CubemapDiffuseFilteringPass() {}
+    bool init();
+};
+
+// This class filters a cubemap to get the specular IBL
+class CubemapSpecularFilteringPass : public CubemapFilteringPass {
+public:
+    CubemapSpecularFilteringPass(Device* device);
+    ~CubemapSpecularFilteringPass() {}
     bool init();
 };
 
