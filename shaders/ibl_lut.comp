@@ -1,0 +1,144 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+
+#include "sampling.h"
+
+// https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
+// https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+
+// This shaders create the IBL lookup table
+// this uses the GGX model with...
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout(binding = 0, rgba16f) uniform image2D outputImage;
+
+//////////////////////////////////////////////////////
+// HELPERS
+//////////////////////////////////////////////////////
+float G_Smith(float roughness, float NdotV, float NdotL)
+{
+    float r = roughness + 1.0;
+    float k = r * r / 8.0;
+    float G1v = NdotV / (NdotV * (1.0 - k) + k);
+    float G1l = NdotL / (NdotL * (1.0 - k) + k);
+    return G1v * G1l;
+}
+
+float G_SmithIBL(float roughness, float NdotV, float NdotL)
+{
+    float k = (roughness * roughness) / 2.0;
+    float G1v = NdotV / (NdotV * (1.0 - k) + k);
+    float G1l = NdotL / (NdotL * (1.0 - k) + k);
+    return G1v * G1l;
+}
+
+vec3 F_Schlick(in vec3 f0, in float f90, in float u)
+{
+    return f0 + (vec3(f90) - f0) * pow(1.0 - u, 5.0);
+}
+
+float Fr_DisneyDiffuse(float NdotV, float NdotL, float LdotH, float linearRoughness)
+{
+    float energyBias = mix(0.0, 0.5, linearRoughness);
+    float energyFactor = mix(1.0, 1.0 / 1.51, linearRoughness);
+    float fd90 = energyBias + 2.0 * LdotH * LdotH * linearRoughness ;
+    vec3 f0 = vec3(1.0, 1.0, 1.0);
+    float lightScatter = F_Schlick(f0, fd90, NdotL) .r;
+    float viewScatter = F_Schlick(f0, fd90, NdotV).r;
+
+    return lightScatter * viewScatter * energyFactor;
+}
+
+
+// From [Karis13]
+// Gives the half vector
+vec3 ImportanceSampleGGX(vec2 Xi, float roughness, vec3 N)
+{
+    float a = roughness * roughness;
+    float phi = 2 * PI * Xi.y;
+    float cosTheta = sqrt((1.0 - Xi.x) / (1.0 + (a*a - 1.0) * Xi.x));
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+    vec3 H = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+    vec3 upVector = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangentX = normalize(cross(upVector, N));
+    vec3 tangentY = cross(N, tangentX);
+    // Tangent to world space
+    return tangentX * H.x + tangentY * H.y + N * H.z;
+}
+
+// from Sebastien Lagarde
+void importanceSampleCosDir(in vec2 Xi, in vec3 N, out vec3 L, out float NdotL, out float pdf)
+{
+    // Local referencial
+    vec3 upVector = abs( N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangentX = normalize(cross(upVector, N));
+    vec3 tangentY = cross(N, tangentX);
+
+    float u1 = Xi.x;
+    float u2 = Xi.y;
+
+    float r = sqrt(u1);
+    float phi = u2 * PI * 2.0;
+
+    L = vec3(r * cos(phi), r * sin(phi), sqrt(max(0.0, 1.0 - u1)));
+    L = normalize(tangentX * L.y + tangentY * L .x + N * L.z);
+
+    NdotL = dot(L, N);
+    pdf = NdotL * INV_PI;
+}
+
+//////////////////////////////////////////////////////
+// MAIN FUNCTION
+//////////////////////////////////////////////////////
+void main() {
+    // ensure that we are working within the bounds of the image
+    ivec2 outputImageSize = imageSize(outputImage);  // x and y are the same in a cubemap
+    if (gl_GlobalInvocationID.x >= outputImageSize.x || gl_GlobalInvocationID.y >= outputImageSize.y)
+        return;
+
+    // should roughness be 0 at center or border of the first pixel?
+    float NdotV = float(gl_GlobalInvocationID.x) / float(outputImageSize.x - 1);
+    float roughness = float(gl_GlobalInvocationID.y) / float(outputImageSize.y - 1);
+
+    vec3 N = vec3(0.0, 0.0, 1.0);
+    vec3 V = vec3(sqrt(1.0 - NdotV*NdotV), 0.0, NdotV);  // view direction in the (x,z) plane
+
+    vec3 outputColor = vec3(0.0);
+
+    const uint SAMPLES_COUNT = 4096;
+    for (uint i = 0; i < SAMPLES_COUNT; ++i) {
+        vec2 Xi = hammersley2D(i, SAMPLES_COUNT);
+        vec3 H = ImportanceSampleGGX(Xi, roughness, N);
+        vec3 L = normalize(2.0 * dot(V, H) * H - V);  // reflect?
+
+        // specular GGX pre integration
+        float NdotL = clamp(dot(N, L), 0.0, 1.0);
+
+        // [Karis13] G term
+        float G = G_SmithIBL(roughness, NdotV, NdotL);
+
+        if (NdotL > 0.0 && G > 0.0) {
+            float LdotH = clamp(dot(L, H), 0.0, 1.0);
+            float NdotH = clamp(dot(N, H), 0.0, 1.0);
+
+            float GVis = G * LdotH / (NdotH * NdotV);
+            float Fc = pow(1.0 - LdotH, 5.0);
+            outputColor.x += (1.0 - Fc) * GVis;
+            outputColor.y += Fc * GVis;
+        }
+
+        // diffuse Disney pre integration
+        Xi = fract(Xi + 0.5);  // why?
+        float pdf;  // unused
+        importanceSampleCosDir(Xi, N, L, NdotL, pdf);
+        if (NdotL > 0.0) {
+            float LdotH = clamp(dot(L, normalize(V + L)), 0.0, 1.0);
+            float NdotV = clamp(dot(N, V), 0.0, 1.0);
+            outputColor.z += Fr_DisneyDiffuse(NdotV, NdotL, LdotH, sqrt(roughness));
+        }
+    }
+
+    outputColor /= float(SAMPLES_COUNT);
+    imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), vec4(outputColor, 0.0));
+}
