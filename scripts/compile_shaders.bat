@@ -23,6 +23,9 @@ FOR /R %%i IN (*) DO (
         echo compiling any hit shader %%i
     ) ELSE IF %%~xi==.rmiss (
         echo compiling miss shader %%i
+    ) ELSE IF %%~xi==.glsl (
+        REM safely ignore this one
+        SET SUPPORTED_SHADER=0
     ) ELSE (
         echo shader %%i is from an unknown/unsupported type
         SET SUPPORTED_SHADER=0
