@@ -370,6 +370,10 @@ Image::~Image() {
 	vkDestroySampler(m_device->handle(), m_imageSampler, nullptr);
 }
 
+VkImageView Image::createViewHandle(uint32_t mipLevel) {
+	return createView(getAspect(m_format), mipLevel, 1);
+}
+
 bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usage) {
 	m_type = Type::eTexture2D;
 	m_width = width;
@@ -407,7 +411,9 @@ bool Image::create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkForm
 
 	vkBindImageMemory(m_device->handle(), m_image, m_imageMemory, 0);
 
-	return createView(getAspect(m_format));
+	m_imageView = createView(getAspect(m_format), 0, m_mipLevels);
+
+	return m_imageView != VK_NULL_HANDLE;
 }
 
 bool Image::create2D(const std::string& filename, Queue& queue, bool generateMips) {
@@ -662,7 +668,9 @@ bool Image::createCube(uint32_t width, uint32_t height, uint32_t mipLevels, VkFo
 
 	vkBindImageMemory(m_device->handle(), m_image, m_imageMemory, 0);
 
-	return createView(getAspect(m_format));
+	m_imageView = createView(getAspect(m_format), 0, m_mipLevels);
+
+	return m_imageView != VK_NULL_HANDLE;
 }
 
 bool Image::createCube(
@@ -949,20 +957,20 @@ bool Image::createCube(const std::string& filename, Queue& queue) {
 	return true;
 }
 
-bool Image::createView(VkImageAspectFlags aspectFlags) {
+VkImageView Image::createView(VkImageAspectFlags aspectFlags, uint32_t baseMipLevel, uint32_t mipCount) {
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewInfo.image = m_image;
 	viewInfo.format = m_format;
 	viewInfo.subresourceRange.aspectMask = aspectFlags;
-	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = m_mipLevels;
+	viewInfo.subresourceRange.baseMipLevel = baseMipLevel;
+	viewInfo.subresourceRange.levelCount = mipCount;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
 
 	switch (m_type)
 	{
 	case Amano::Image::Type::eUnknown:
-		return false;
+		return VK_NULL_HANDLE;
 	case Amano::Image::Type::eTexture2D:
 		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		viewInfo.subresourceRange.layerCount = 1;
@@ -975,12 +983,12 @@ bool Image::createView(VkImageAspectFlags aspectFlags) {
 		break;
 	}
 
-	if (vkCreateImageView(m_device->handle(), &viewInfo, nullptr, &m_imageView) != VK_SUCCESS) {
+	VkImageView view = VK_NULL_HANDLE;
+	if (vkCreateImageView(m_device->handle(), &viewInfo, nullptr, &view) != VK_SUCCESS) {
 		std::cerr << "failed to create texture image view!" << std::endl;
-		return false;
 	}
 
-	return true;
+	return view;
 }
 
 bool Image::createSampler(VkFilter magFilter, VkFilter minFilter) {

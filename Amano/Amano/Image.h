@@ -32,6 +32,8 @@ public:
 	VkImageView viewHandle() const { return m_imageView; }
 	VkSampler sampler() const { return m_imageSampler; }
 
+	VkImageView createViewHandle(uint32_t mipLevel);
+
 	bool create2D(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usage);
 	bool create2D(const std::string& filename, Queue& queue, bool generateMips);
 	// only loads DDS files
@@ -56,7 +58,7 @@ public:
 	void transitionLayout(Queue& queue, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 private:
-	bool createView(VkImageAspectFlags aspectFlags);
+	VkImageView createView(VkImageAspectFlags aspectFlags, uint32_t baseMipLevel, uint32_t mipCount);
 	void transitionLayoutInternal(Queue& queue, uint32_t layer, VkImageLayout oldLayout, VkImageLayout newLayout);
 	void copyBufferToImage(Queue& queue, VkBuffer buffer, uint32_t layer);
 	void generateMipmaps(Queue& queue, uint32_t layer);
