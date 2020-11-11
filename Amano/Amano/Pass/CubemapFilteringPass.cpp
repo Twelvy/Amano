@@ -35,7 +35,7 @@ bool CubemapFilteringPass::init(const std::string& filename) {
         .addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);          // output image
     m_descriptorSetLayout = descriptorSetLayoutbuilder.build(*m_device);
 
-    // create raytracing pipeline layout
+    // create pipeline layout
     PipelineLayoutBuilder computePipelineLayoutBuilder;
     computePipelineLayoutBuilder.addDescriptorSetLayout(m_descriptorSetLayout);
     m_pipelineLayout = computePipelineLayoutBuilder.build(*m_device);
@@ -100,19 +100,6 @@ CubemapDiffuseFilteringPass::CubemapDiffuseFilteringPass(Device* device)
 
 bool CubemapDiffuseFilteringPass::init() {
     return CubemapFilteringPass::init("compiled_shaders/diffuse_filter.comp.spv");
-}
-
-/////////////////////////////////////////////////////
-// CubemapSpecularFilteringPass
-/////////////////////////////////////////////////////
-
-CubemapSpecularFilteringPass::CubemapSpecularFilteringPass(Device* device)
-    : CubemapFilteringPass(device)
-{
-}
-
-bool CubemapSpecularFilteringPass::init() {
-    return CubemapFilteringPass::init("compiled_shaders/specular_filter.comp.spv");
 }
 
 }

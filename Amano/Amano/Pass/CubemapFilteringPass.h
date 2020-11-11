@@ -46,12 +46,4 @@ public:
     bool init();
 };
 
-// This class filters a cubemap to get the specular IBL
-class CubemapSpecularFilteringPass : public CubemapFilteringPass {
-public:
-    CubemapSpecularFilteringPass(Device* device);
-    ~CubemapSpecularFilteringPass() {}
-    bool init();
-};
-
 }
