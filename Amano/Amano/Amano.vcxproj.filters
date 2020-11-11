@@ -132,6 +132,12 @@
     <ClCompile Include="Pass\CubemapFilteringPass.cpp">
       <Filter>Source Files\Pass</Filter>
     </ClCompile>
+    <ClCompile Include="Pass\IBLLutPass.cpp">
+      <Filter>Source Files\Pass</Filter>
+    </ClCompile>
+    <ClCompile Include="Pass\CubemapSpecularFilteringPass.cpp">
+      <Filter>Source Files\Pass</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -255,6 +261,12 @@
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
     <ClInclude Include="Pass\CubemapFilteringPass.h">
+      <Filter>Header Files\Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="Pass\IBLLutPass.h">
+      <Filter>Header Files\Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="Pass\CubemapSpecularFilteringPass.h">
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
   </ItemGroup>
