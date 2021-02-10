@@ -33,7 +33,7 @@ void main() {
     const uint SAMPLES_COUNT = 4096;
     for (uint i = 0; i < SAMPLES_COUNT; ++i) {
         vec2 Xi = hammersley2D(i, SAMPLES_COUNT);
-        vec3 localSamplingDir = ImportanceSampleCosDir(Xi);
+        vec3 localSamplingDir = hemisphereSample_cosine(Xi);
         vec3 samplingDirection = localToWorldReferential(localSamplingDir, N);
 
         float NdotL = localSamplingDir.z;  // localSamplingDir is expressed in (Tx, Ty, N) referential

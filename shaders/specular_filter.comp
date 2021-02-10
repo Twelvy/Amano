@@ -20,6 +20,7 @@ layout(push_constant) uniform filterInformation {
 vec3 filter_specular(float roughness, vec3 N) {
     vec3 outputColor = vec3(0.0);
     float totalWeight = 0.0;
+    //int mipCount = textureQueryLevels(inputSampler);
 
     const uint SAMPLES_COUNT = 4096;
     for (uint i = 0; i < SAMPLES_COUNT; ++i) {
@@ -29,6 +30,12 @@ vec3 filter_specular(float roughness, vec3 N) {
 
         float NdotL = clamp(dot(N, L), 0.0, 1.0);
         if (NdotL >= 0.0) {
+            //float NdotH = clamp(dot(N, H), 0.0, 1.0);
+            //float LdotH = clamp(dot(L, H), 0.0, 1.0);
+            //float pdf = _GGX_Divide_Pi()
+            //float omegaS = 1.0 / (SAMPLES_COUNT * pdf);
+            //float omegaP = 4.0 * PI / (6.0 * width * width) ;
+            //float mipLevel = clamp(0.5 * log2 (omegaS / omegaP), 0, mipCount);
             outputColor += NdotL * textureLod(inputSampler, L, 0).rgb;
             totalWeight += NdotL;
         }

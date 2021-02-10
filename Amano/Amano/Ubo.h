@@ -22,4 +22,16 @@ struct LightInformation {
 	glm::vec3 lightPosition;
 };
 
+struct MaterialInformation {
+	glm::vec3 baseColor = glm::vec3(1.0f);
+	float reflectance = 1.0f;
+	float metalness = 0.1f;
+	float roughness = 0.8f;
+};
+
+struct DebugInformation {
+	float diffuseWeight = 1.0f;
+	float specularWeight = 1.0f;
+};
+
 }

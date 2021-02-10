@@ -60,6 +60,8 @@ Application::Application()
 	, m_blitToSwapChainPass{ nullptr }
 	// light information
 	, m_lightPosition(1.0f, 1.0f, 1.0f)
+	, m_materialInformation()
+	, m_colorContribution(ColorContribution::eAll)
 {
 }
 
@@ -359,16 +361,44 @@ void Application::drawFrame() {
 	m_device->wait();
 }
 
+//bool _GBufferAlbedo = false;;
+//bool _GBufferNormal = false;
+//bool _GBufferDepth = false;
+//bool _lighting = false;
+
 void Application::drawUI(uint32_t imageIndex) {
 	ImGuiIO& io = ImGui::GetIO();
 	io.DisplaySize = ImVec2((float)m_width, (float)m_height);
 	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 	m_guiSystem->startFrame();
 
-	ImGui::Begin("Light information");
-	ImGui::DragFloat3("position", &m_lightPosition[0], 0.01f, 1.0f, 1.0f);
+	ImGui::Begin("Debug");
+	ImGui::Text("Light information");
+	ImGui::DragFloat3("position", &m_lightPosition[0], 0.01f, -1.0f, 1.0f);
+	ImGui::Separator();
+	ImGui::Text("Material information");
+	ImGui::DragFloat3("base color", &m_materialInformation.baseColor[0], 0.01f, 0.0f, 1.0f);
+	ImGui::DragFloat("reflectance", &m_materialInformation.reflectance, 0.001f, 0.0f, 1.0f);
+	ImGui::DragFloat("metalness", &m_materialInformation.metalness, 0.001f, 0.0f, 1.0f);
+	ImGui::DragFloat("roughness", &m_materialInformation.roughness, 0.001f, 0.0f, 1.0f);
+	ImGui::Separator();
+	ImGui::Text("Debug");
+	if (ImGui::RadioButton("Diff + Spec", m_colorContribution == ColorContribution::eAll)) m_colorContribution = ColorContribution::eAll;
+	if (ImGui::RadioButton("Diff only", m_colorContribution == ColorContribution::eDiffuseOnly)) m_colorContribution = ColorContribution::eDiffuseOnly;
+	if (ImGui::RadioButton("Spec only", m_colorContribution == ColorContribution::eSpecularOnly)) m_colorContribution = ColorContribution::eSpecularOnly;
+
+	//ImGui::Separator();
+	//ImGui::Text("Intermediate buffers displays");
+	//ImGui::Checkbox("Lighting", &_lighting);
 	ImGui::End();
 
+	/*
+	if (_lighting) {
+		ImGui::Begin("Lighting buffer");
+		ImGui::Image(m_deferredLightingPass->outputImage()->viewHandle(), ImVec2(200, 200));
+		ImGui::End();
+	}
+	*/
 	m_guiSystem->endFrame(imageIndex, m_width, m_height, m_inFlightFence);
 }
 
@@ -387,7 +417,7 @@ void Application::updateUniformBuffers() {
 	//ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.model = glm::mat4(1.0f);
 	ubo.view = glm::lookAt(origin, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.proj = glm::perspective(glm::radians(45.0f), m_width / (float)m_height, 0.1f, 10.0f);
+	ubo.proj = glm::perspective(glm::radians(90.0f), m_width / (float)m_height, 0.1f, 10.0f);
 
 	// glm uses the opengl convention, so we need to flip the Y axis of the projection
 	// TODO: fix this by implementing our own projection method
@@ -403,6 +433,19 @@ void Application::updateUniformBuffers() {
 	LightInformation lightUbo;
 	lightUbo.lightPosition = m_lightPosition;
 
+	// debug
+	DebugInformation debugUbo;
+	if ((m_colorContribution & ColorContribution::eDiffuseOnly) != 0)
+		debugUbo.diffuseWeight = 1.0f;
+	else
+		debugUbo.diffuseWeight = 0.0f;
+
+	if ((m_colorContribution & ColorContribution::eSpecularOnly) != 0)
+		debugUbo.specularWeight = 1.0f;
+	else
+		debugUbo.specularWeight = 0.0f;
+
+
 	if (m_gBufferPass != nullptr) {
 		m_gBufferPass->updateUniformBuffer(ubo);
 	}
@@ -410,6 +453,8 @@ void Application::updateUniformBuffers() {
 	if (m_deferredLightingPass != nullptr) {
 		m_deferredLightingPass->updateUniformBuffer(rayUbo);
 		m_deferredLightingPass->updateLightUniformBuffer(lightUbo);
+		m_deferredLightingPass->updateMaterialUniformBuffer(m_materialInformation);
+		m_deferredLightingPass->updateDebugUniformBuffer(debugUbo);
 	}
 
 	if (m_raytracingPass != nullptr) {

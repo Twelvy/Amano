@@ -20,6 +20,13 @@
 
 namespace Amano {
 
+enum ColorContribution {
+	eDiffuseOnly = 0x1,
+	eSpecularOnly = 0x2,
+
+	eAll = eDiffuseOnly | eSpecularOnly,
+};
+
 class Application {
 public:
 	Application();
@@ -93,6 +100,10 @@ private:
 
 	// light information
 	glm::vec3 m_lightPosition;
+
+	// debug
+	MaterialInformation m_materialInformation;
+	ColorContribution m_colorContribution;
 };
 
 }

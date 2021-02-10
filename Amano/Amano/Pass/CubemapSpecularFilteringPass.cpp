@@ -5,6 +5,29 @@
 #include "../Builder/DescriptorSetLayoutBuilder.h"
 #include "../Builder/PipelineLayoutBuilder.h"
 
+#include <vector>
+
+namespace {
+
+std::vector<char> extractLowerCaseCharacters(const std::string& str, bool isReverse) {
+    std::vector<char> result;
+    auto insert = [&result](char c) {
+        if (c >= 'a' && c <= 'z')
+            result.push_back(c);
+    };
+    if (isReverse) {
+        for (auto it = str.crbegin(); it != str.crend(); ++it)
+            insert(*it);
+    }
+    else {
+        for (auto it = str.cbegin(); it != str.cend(); ++it)
+            insert(*it);
+    }
+    return result;
+}
+
+}
+
 namespace Amano {
 
 /////////////////////////////////////////////////////

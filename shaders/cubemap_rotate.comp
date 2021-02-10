@@ -1,0 +1,57 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+
+// This shaders rotates the cubemap to be sampled in direct referential, with z being vertical
+// this is basically a reflection wrt the plane going through the origin with normal (0, 1, 1)
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+//layout(local_size_variable) in;
+
+layout(binding = 0, rgba32f) uniform imageCube inputImage;
+layout(binding = 1, rgba32f) uniform imageCube outputImage;
+
+void main() {
+    // get image size
+    // We assume input and output image have the same size
+    int inputImageSize = imageSize(inputImage).x;  // x and y are the same in a cubemap
+    if (gl_GlobalInvocationID.x >= inputImageSize || gl_GlobalInvocationID.y >= inputImageSize)
+        return;
+
+    ivec3 outputPixel = ivec3(0, 0, 0);
+    ivec3 inputPixel = ivec3(gl_GlobalInvocationID);
+    // get color at the source
+    vec4 color = imageLoad(inputImage, inputPixel);
+    if (gl_GlobalInvocationID.z == 0)  // face X
+    {
+        // rotate the image counter clockwise by 90 degrees + flip along y
+        outputPixel = ivec3(inputPixel.y, inputPixel.x, 0);
+    }
+    else if (gl_GlobalInvocationID.z == 1)  // face -X
+    {
+        // rotate the image clockwise by 90 degrees + flip along y
+        outputPixel = ivec3(inputImageSize - 1 - inputPixel.y, inputImageSize - 1 - inputPixel.x, 1);
+    }
+    else if (gl_GlobalInvocationID.z == 2)  // face Y
+    {
+        // write in Z + flip vertically
+        outputPixel = ivec3(inputPixel.x, inputImageSize - 1 - inputPixel.y, 4);
+    }
+    else if (gl_GlobalInvocationID.z == 3)  // face -Y
+    {
+        // write in -Z + flip horizontally
+        outputPixel = ivec3(inputImageSize - 1 - inputPixel.x, inputPixel.y, 5);
+    }
+    else if (gl_GlobalInvocationID.z == 4)  // face Z
+    {
+        // write in Y + flip vertically
+        outputPixel = ivec3(inputPixel.x, inputImageSize - 1 - inputPixel.y, 2);
+    }
+    else if (gl_GlobalInvocationID.z == 5)  // face -Z
+    {
+        // write in -Y + flip horizontally
+        outputPixel = ivec3(inputImageSize - 1 - inputPixel.x, inputPixel.y, 3);
+    }
+
+    // store
+    imageStore(outputImage, outputPixel, color);
+}

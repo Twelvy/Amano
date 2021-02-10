@@ -5,8 +5,9 @@
 
 // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
 // https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+// https://google.github.io/filament/Filament.md.html
+// https://twvideo01.ubm-us.net/o1/vault/gdc2017/Presentations/Hammon_Earl_PBR_Diffuse_Lighting.pdf
 
-// This shaders create the IBL lookup table
 // this uses the GGX model with...
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
@@ -20,24 +21,34 @@ float G_Smith(float roughness, float NdotV, float NdotL)
 {
     float r = roughness + 1.0;
     float k = r * r / 8.0;
-    float G1v = NdotV / (NdotV * (1.0 - k) + k);
-    float G1l = NdotL / (NdotL * (1.0 - k) + k);
-    return G1v * G1l;
+    float G1_V = NdotV / (NdotV * (1.0 - k) + k);
+    float G1_L = NdotL / (NdotL * (1.0 - k) + k);
+    return G1_V * G1_L;
 }
 
-float G_SmithIBL(float roughness, float NdotV, float NdotL)
+float V_SmithCorrelated(float roughness, float NdotV, float NdotL)
 {
-    float k = (roughness * roughness) / 2.0;
-    float G1v = NdotV / (NdotV * (1.0 - k) + k);
-    float G1l = NdotL / (NdotL * (1.0 - k) + k);
-    return G1v * G1l;
+    float k = roughness * roughness;
+    float G1_V = NdotL * sqrt(NdotV * NdotV * (1.0 - k) + k);
+    float G1_L = NdotV * sqrt(NdotL * NdotL * (1.0 - k) + k);
+    return 0.5 / (G1_V + G1_L);
 }
 
-vec3 F_Schlick(in vec3 f0, in float f90, in float u)
+float V_SmithCorrelatedFast(float roughness, float NdotV, float NdotL)
 {
-    return f0 + (vec3(f90) - f0) * pow(1.0 - u, 5.0);
+    //float k = roughness * roughness;
+    float k = roughness;
+    float G1_V = NdotL * (NdotV * (1.0 - k) + k);
+    float G1_L = NdotV * (NdotL * (1.0 - k) + k);
+    return 0.5 / (G1_V + G1_L);
 }
 
+float F_Schlick(in float f0, in float f90, in float u)
+{
+    return f0 + (f90 - f0) * pow(1.0 - u, 5.0);
+}
+
+/*
 float Fr_DisneyDiffuse(float NdotV, float NdotL, float LdotH, float linearRoughness)
 {
     float energyBias = mix(0.0, 0.5, linearRoughness);
@@ -49,6 +60,26 @@ float Fr_DisneyDiffuse(float NdotV, float NdotL, float LdotH, float linearRoughn
 
     return lightScatter * viewScatter * energyFactor;
 }
+*/
+
+float Diffuse_Burley(float NdotV, float NdotL, float LdotH, float roughness)
+{
+    float a = pow(1.0 - NdotV, 5.0);
+    float b = pow(1.0 - NdotL, 5.0);
+    float r = 2.0 * roughness * LdotH * LdotH;
+
+    float fd = (1.0 - 0.5 * a) * (1.0 - 0.5 * b);
+    float fr = r * (a + b + a * b * (r - 1.0));
+
+    return fd + fr;
+}
+
+float Fd_Burley(float NdotV, float NdotL, float LdotH, float roughness) {
+    float f90 = 0.5 + 2.0 * roughness * LdotH * LdotH;
+    float lightScatter = F_Schlick(1.0, f90, NdotL);
+    float viewScatter = F_Schlick(1.0, f90, NdotV);
+    return lightScatter * viewScatter * (1.0 / PI);
+}
 
 //////////////////////////////////////////////////////
 // MAIN FUNCTION
@@ -59,9 +90,13 @@ void main() {
     if (gl_GlobalInvocationID.x >= outputImageSize.x || gl_GlobalInvocationID.y >= outputImageSize.y)
         return;
 
+    float NdotV = (float(gl_GlobalInvocationID.x) + 0.5) / float(outputImageSize.x);
+    //float NdotV = float(gl_GlobalInvocationID.x) / float(outputImageSize.x - 1);
     // should roughness be 0 at center or border of the first pixel?
-    float NdotV = float(gl_GlobalInvocationID.x) / float(outputImageSize.x - 1);
-    float roughness = float(gl_GlobalInvocationID.y) / float(outputImageSize.y - 1);
+    float roughness = (float(gl_GlobalInvocationID.y) + 0.5) / float(outputImageSize.y);
+    roughness = roughness * roughness;
+
+    //float roughness = float(gl_GlobalInvocationID.y) / float(outputImageSize.y - 1);
 
     vec3 N = vec3(0.0, 0.0, 1.0);
     vec3 V = vec3(sqrt(1.0 - NdotV*NdotV), 0.0, NdotV);  // view direction in the (x,z) plane
@@ -71,35 +106,37 @@ void main() {
     const uint SAMPLES_COUNT = 4096;
     for (uint i = 0; i < SAMPLES_COUNT; ++i) {
         vec2 Xi = hammersley2D(i, SAMPLES_COUNT);
-        vec3 H = localToWorldReferential(ImportanceSampleGGX(Xi, roughness), N);
+        vec3 H = ImportanceSampleGGX(Xi, roughness);  // no need to change the referential since we are already in the (X,Y,Z) referential
         vec3 L = normalize(2.0 * dot(V, H) * H - V);  // reflect?
 
         // specular GGX pre integration
-        float NdotL = clamp(dot(N, L), 0.0, 1.0);
+        float NdotL = L.z;  // clamp(dot(N, L), 0.0, 1.0);
 
         // [Karis13] G term
-        float G = G_SmithIBL(roughness, NdotV, NdotL);
+        float G = V_SmithCorrelated(roughness, NdotV, NdotL);
 
         if (NdotL > 0.0 && G > 0.0) {
             float LdotH = clamp(dot(L, H), 0.0, 1.0);
             float NdotH = clamp(dot(N, H), 0.0, 1.0);
 
-            float GVis = G * LdotH / (NdotH * NdotV);
+            //float GVis = G * LdotH / (NdotH * NdotV);
+            float GVis = NdotL * G * (4.0 * LdotH / NdotH);
             float Fc = pow(1.0 - LdotH, 5.0);
             outputColor.x += (1.0 - Fc) * GVis;
             outputColor.y += Fc * GVis;
         }
 
         // diffuse Disney pre integration
-        Xi = fract(Xi + 0.5);  // why?
+        //Xi = fract(Xi + 0.5);  // why?
         //float pdf;  // unused
-        L = localToWorldReferential(ImportanceSampleCosDir(Xi), N);
+        L = ImportanceSampleCosDir(Xi);
         // recompute NdotL here
-        NdotL = dot( L, N);
+        NdotL = L.z;  // dot(N, L);
         if (NdotL > 0.0) {
-            float LdotH = clamp(dot(L, normalize(V + L)), 0.0, 1.0);
-            float NdotV = clamp(dot(N, V), 0.0, 1.0);
-            outputColor.z += Fr_DisneyDiffuse(NdotV, NdotL, LdotH, sqrt(roughness));
+            H = normalize(N + L);
+            float NdotH = clamp(H.z, 0.0, 1.0);
+            float LdotH = clamp(dot(L, H), 0.0, 1.0);
+            outputColor.z += Diffuse_Burley(NdotV, NdotL, LdotH, roughness);
         }
     }
 

@@ -86,16 +86,16 @@ vec2 hammersley2D(uint i, uint count) {
     return vec2(float(i)/float(count), radicalInverse_VdC(i));
 }
 
-vec3 hemisphereSample_uniform(float u, float v) {
-    float phi = v * 2.0 * PI;
-    float cosTheta = 1.0 - u;
+vec3 hemisphereSample_uniform(vec2 Xi) {
+    float phi = Xi.y * 2.0 * PI;
+    float cosTheta = 1.0 - Xi.x;
     float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
     return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
 }
 
-vec3 hemisphereSample_cosine(float u, float v) {
-    float phi = v * 2.0 * PI;
-    float cosTheta = sqrt(1.0 - u);
+vec3 hemisphereSample_cosine(vec2 Xi) {
+    float phi = Xi.y * 2.0 * PI;
+    float cosTheta = sqrt(1.0 - Xi.x);
     float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
     return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
 }

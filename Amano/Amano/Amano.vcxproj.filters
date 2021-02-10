@@ -129,6 +129,9 @@
     <ClCompile Include="Pass\ToneMappingPass.cpp">
       <Filter>Source Files\Pass</Filter>
     </ClCompile>
+    <ClCompile Include="Pass\CubemapRotatePass.cpp">
+      <Filter>Source Files\Pass</Filter>
+    </ClCompile>
     <ClCompile Include="Pass\CubemapFilteringPass.cpp">
       <Filter>Source Files\Pass</Filter>
     </ClCompile>
@@ -258,6 +261,9 @@
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
     <ClInclude Include="Pass\ToneMappingPass.h">
+      <Filter>Header Files\Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="Pass\CubemapRotatePass.h">
       <Filter>Header Files\Pass</Filter>
     </ClInclude>
     <ClInclude Include="Pass\CubemapFilteringPass.h">

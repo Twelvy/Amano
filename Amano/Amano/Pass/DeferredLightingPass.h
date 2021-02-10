@@ -1,6 +1,10 @@
 #pragma once
 
 #include "Pass.h"
+#include "CubemapRotatePass.h"
+#include "CubemapFilteringPass.h"
+#include "CubemapSpecularFilteringPass.h"
+#include "IBLLutPass.h"
 #include "../Device.h"
 #include "../Image.h"
 #include "../Ubo.h"
@@ -31,6 +35,8 @@ public:
 
 	void updateUniformBuffer(RayParams& ubo);
 	void updateLightUniformBuffer(LightInformation& ubo);
+	void updateMaterialUniformBuffer(MaterialInformation& ubo);
+	void updateDebugUniformBuffer(DebugInformation& ubo);
 
 	bool submit();
 
@@ -49,9 +55,21 @@ private:
 	VkSampler m_nearestSampler;
 	UniformBuffer<RayParams> m_uniformBuffer;
 	UniformBuffer<LightInformation> m_lightUniformBuffer;
+	UniformBuffer<MaterialInformation> m_materialUniformBuffer;
+	UniformBuffer<DebugInformation> m_debugUniformBuffer;
 	Image* m_outputImage;
-	Image* m_environmentImage;
+	struct {
+		Image* environmentImage = nullptr;
+		Image* filteredDiffuseImage = nullptr;
+		Image* filteredSpecularImage = nullptr;
+		Image* lutImage = nullptr;
+	} m_ibl;
 	VkCommandBuffer m_commandBuffer;
+
+	CubemapDiffuseFilteringPass m_cubemapDiffuseFiltering;
+	CubemapSpecularFilteringPass m_cubemapSpecularFiltering;
+	CubemapRotatePass m_cubemapRotate;
+	IBLLutPass m_iblLutPass;
 };
 
 }

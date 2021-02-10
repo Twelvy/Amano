@@ -20,6 +20,162 @@ layout(binding = 5) uniform lightInformation
 };
 
 layout(binding = 6, rgba8) uniform image2D outputImage;
+layout(binding = 7) uniform samplerCube irradianceSampler;
+layout(binding = 8) uniform samplerCube specularIrradianceSampler;
+layout(binding = 9) uniform sampler2D iblLutSampler;
+
+/////////////////////////////////////////
+// Constants for test
+// should be queried from the GBuffer
+/////////////////////////////////////////
+layout(binding = 10) uniform MaterialInformation
+{
+    vec3 mBaseColor;
+    float mReflectance;
+    float mMetalness;
+    float mRoughness;
+};
+
+layout(binding = 11) uniform DebugInformation
+{
+    float mDiffuseWeight;
+    float mSpecularWeight;
+};
+
+const float PI = 3.14159265359;
+
+float sRGB_to_RGB(float c)
+{
+    if (c <= 0.04045)
+        return c / 12.92;
+    else
+        return pow((c + 0.055) / 1.055, 2.4);
+}
+
+vec3 sRGB_to_RGB(vec3 color) {
+    return vec3(sRGB_to_RGB(color.r),
+                sRGB_to_RGB(color.g),
+                sRGB_to_RGB(color.b));
+}
+
+/*
+vec3 computeDiffuseColorLambert(vec3 worldPosition, vec3 worldNormal) {
+    vec3 lightDir = normalize(lightPosition - worldPosition);
+    const vec3 lightColor = vec3(1.0, 1.0, 1.0);
+    return clamp(dot(worldNormal, lightDir), 0.0, 1.0) * lightColor;
+}
+
+vec3 computeDiffuseIBL(vec3 worldPosition, vec3 worldNormal) {
+    vec3 eyeDir = normalize(rayOrigin - worldPosition);
+    vec3 reflectedDir = reflect(-eyeDir, worldNormal);
+    return texture(irradianceSampler, reflectedDir.xzy).rgb;
+}
+
+// Trowbridge-Reitz
+float distributionGGX(float NdotH, float roughness) {
+    float roughnessSquared = roughness * roughness;
+    float a = NdotH * NdotH * (roughnessSquared - 1) + 1;
+    return roughnessSquared / (PI * a * a);
+}
+
+float geometrySchlickGGX(float NdotV, float roughness) {
+    float k = (roughness * roughness) / 2.0;  // IBL
+    return NdotV / (NdotV * (1 - k) + k);
+}
+
+vec3 computeSpecularCookTorrance(vec3 worldPosition, vec3 worldNormal) {
+    vec3 eyeDir = normalize(rayOrigin - worldPosition);
+
+}
+*/
+/*
+vec3 computeFresnelSchlick(vec3 f0, float NdotV) {
+    return f0 + (1.0 - f0) * pow(1.0 - NdotV, 5.0);
+}
+*/
+vec3 computeFresnelSchlick(vec3 f0, float NdotV, float roughness) {
+    return f0 + (max(vec3(1.0 - roughness), f0) - f0) * pow(1.0 - NdotV, 5.0);
+}
+
+// From moving Frostbite to pbr, S. Lagarde
+vec3 getSpecularDominantDir(vec3 N, vec3 R, float roughness) {
+    float smoothness = clamp(1.0 - roughness, 0.0, 1.0);
+    float lerpfactor = smoothness * (sqrt(smoothness) + roughness);
+    return normalize(mix(N, R, lerpfactor));
+}
+
+// For Disney
+vec3 getDiffuseDominantDir(vec3 N, vec3 V, float NdotV, float roughness) {
+    float a = 1.02341 * roughness - 1.51174;
+    float b = -0.511705 * roughness + 0.755868;
+    float lerpFactor = clamp((NdotV * a + b) * roughness, 0.0, 1.0) ;
+    // The result is not normalized as we fetch in a cubemap
+    return mix(N, V, lerpFactor);
+}
+/*
+vec3 computeIBLColor(vec3 albedo, float metalness, float roughness, vec3 position, vec3 normal, vec3 eye) {
+    vec3 viewDirection = normalize(eye - position);
+    vec3 reflected = reflect(-viewDirection, normal);  // don't forget the minus sign to reflect
+
+    vec3 f0 = mix(mDielectric, albedo, metalness);  // lerp from dielectric to object albedo with metalness
+    float NdotV = clamp(dot(normal, viewDirection), 0.0, 1.0);
+
+    vec3 fresnel = computeFresnelSchlick(f0, NdotV, roughness);
+
+    //vec3 diffuseFactor = mix(vec3(1.0) - fresnel, vec3(0.0), metalness);
+    vec3 diffuseFactor = vec3(1.0) - fresnel;
+    diffuseFactor *= vec3(1.0 - metalness);
+    // diffuse IBL is sampled in the normal direction
+    vec3 iblDiffuse = diffuseFactor * albedo * texture(irradianceSampler, normal).rgb;
+    
+    int levels = textureQueryLevels(specularIrradianceSampler);
+    // specular IBL is sampled in the reflected direction
+    //vec3 specularDominantDirection = getSpecularDominantDir(normal, reflected, roughness);
+    vec3 specularIrradiance = textureLod(specularIrradianceSampler, reflected, roughness * float(levels)).rgb;
+    vec2 specularBRDF = texture(iblLutSampler, vec2(NdotV, roughness)).rg;
+    // Lagarde, Moving Frostbite to Physically Based Rendering 3.0
+    //float f90 = clamp(50.0 * dot(f0, vec3(0.33)), 0.0, 1.0);
+    vec3 iblSpecular = (fresnel * specularBRDF.x + specularBRDF.y) * specularIrradiance;
+
+    return iblDiffuse + iblSpecular;
+}
+*/
+
+vec3 getIBLDiffuse(vec3 N, vec3 V, float NdotV, float roughness, float DFG) {
+    //vec3 dominantDir = getDiffuseDominantDir(N, V, NdotV, roughness);
+    vec3 dominantDir = N;
+    return DFG * texture(irradianceSampler, dominantDir).rgb;
+}
+
+vec3 getIBLSpecular(vec3 N, vec3 V, float roughness, vec3 f0, float f90, vec2 DFG) {
+    vec3 R = reflect(-V, N);
+    vec3 dominantDir = getSpecularDominantDir(N, R, roughness);
+
+    int levels = textureQueryLevels(specularIrradianceSampler);
+    //float mipLevel = sqrt(roughness) * float(levels - 1);  // remap the roughness
+    float mipLevel = roughness * float(levels - 1);  // remap the roughness
+
+    vec3 specular = textureLod(specularIrradianceSampler, dominantDir, mipLevel).rgb;
+
+    return specular * (f0 * DFG.x + f90 * DFG.y);
+}
+
+vec3 computeIBLColor(vec3 albedo, float metalness, float roughness, vec3 position, vec3 normal, vec3 eye) {
+    vec3 viewDirection = normalize(eye - position);
+
+    vec3 baseColor = sRGB_to_RGB(mBaseColor);
+    vec3 diffuseColor = (1.0 - mMetalness) * baseColor;
+    const float REFLECTANCE = 0.16;
+    vec3 f0 = mix(vec3(REFLECTANCE * (mReflectance * mReflectance)), baseColor, mMetalness);
+    float f90 = clamp(50.0 * dot(f0, vec3(0.33)), 0.0, 1.0);
+    float NdotV = clamp(dot(normal, viewDirection), 0.0, 1.0);
+
+    vec3 DFG = texture(iblLutSampler, vec2(NdotV, roughness)).rgb;
+    vec3 iblDiffuse = diffuseColor * getIBLDiffuse(normal, viewDirection, NdotV, roughness, DFG.z);
+    vec3 iblSpecular = getIBLSpecular(normal, viewDirection, roughness, f0, f90, DFG.xy);
+
+    return mDiffuseWeight * iblDiffuse + mSpecularWeight * iblSpecular;
+}
 
 void main() {
     // get image size
@@ -27,7 +183,7 @@ void main() {
     if (gl_GlobalInvocationID.x >= outputImageSize.x || gl_GlobalInvocationID.y >= outputImageSize.y)
         return;
 
-    vec4 outColor = vec4(0.0);
+    vec3 outColor = vec3(0.0);
 
     // get uv
     vec2 uv = (vec2(gl_GlobalInvocationID.xy) + vec2(0.5)) / vec2(outputImageSize);
@@ -43,12 +199,13 @@ void main() {
 
     if (depth >= 1.0) {
         vec3 rayDir = normalize(worldPosition - rayOrigin);
-        outColor = texture(environmentSampler, rayDir.xzy);
+        outColor = texture(environmentSampler, rayDir).rgb;
     }
     else {
-        vec4 albedo = texture(albedoSampler, uv);
+        vec3 albedo = texture(albedoSampler, uv).rgb;
         vec3 worldNormal = normalize(texture(worldNormalSampler, uv).xyz);
-
+        outColor = computeIBLColor(albedo, mMetalness, mRoughness, worldPosition, worldNormal, rayOrigin);
+        /*
         // diffuse
         vec3 lightDir = normalize(lightPosition - worldPosition);
         float diffuseIntensity = clamp(dot(worldNormal, lightDir), 0.0, 1.0);
@@ -60,8 +217,9 @@ void main() {
 
         // sum everything
         outColor = (diffuseIntensity * albedo) + (specular * specularColor);
+        */
     }
     // store
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-    imageStore(outputImage, pixel, outColor);
+    imageStore(outputImage, pixel, vec4(outColor, 1.0));
 }
