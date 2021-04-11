@@ -13,7 +13,7 @@
 namespace Amano {
 
 GBufferPass::GBufferPass(Device* device)
-	: Pass(device, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV)
+	: Pass(device, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR)
 	, m_descriptorSetLayout{ VK_NULL_HANDLE }
 	, m_pipelineLayout{ VK_NULL_HANDLE }
 	, m_pipeline{ VK_NULL_HANDLE }

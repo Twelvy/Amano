@@ -20,7 +20,7 @@ static void checkVkResult(VkResult err)
 namespace Amano {
 
 ImGuiSystem::ImGuiSystem(Device* device)
-	: Pass(device, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV)
+	: Pass(device, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR)
     , InputReader()
 	, m_descriptorPool{ VK_NULL_HANDLE }
     , m_renderPass{ VK_NULL_HANDLE }

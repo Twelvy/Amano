@@ -30,7 +30,7 @@ private:
 	union {
 		VkDescriptorBufferInfo m_bufferInfo;
 		VkDescriptorImageInfo m_imageInfo;
-		VkWriteDescriptorSetAccelerationStructureNV m_accelerationStructure;
+		VkWriteDescriptorSetAccelerationStructureKHR m_accelerationStructure;
 	};
 };
 

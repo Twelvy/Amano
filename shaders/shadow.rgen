@@ -1,10 +1,10 @@
 // Ray generation shader
 // computes the shadow
 #version 460
-#extension GL_NV_ray_tracing : require
+#extension GL_EXT_ray_tracing : require
 
-layout(location = 0) rayPayloadNV vec4 payload;
-layout(binding = 0, set = 0) uniform accelerationStructureNV acc;
+layout(location = 0) rayPayloadEXT vec4 payload;
+layout(binding = 0, set = 0) uniform accelerationStructureEXT acc;
 layout(binding = 1, rgba32f) uniform image2D outputImage;
 layout(binding = 2, std140, set = 0) uniform rayParams
 {
@@ -26,26 +26,27 @@ vec4 getLightIntensity(vec3 origin, vec3 target, vec3 normal) {
     if (dot(normal, direction) > 0.0) {
         payload = vec4(1.0, 1.0, 1.0, 1.0);
         float maxLength = length(direction);
-        traceNV(acc,
-                gl_RayFlagsOpaqueNV | gl_RayFlagsTerminateOnFirstHitNV,
-                0xff,
-                0,
-                0,
-                0,
-                origin,
-                0.001,
-                normalize(direction),
-                maxLength,
-                0);
+        traceRayEXT(
+            acc,
+            gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
+            0xff,
+            0,
+            0,
+            0,
+            origin,
+            0.001,
+            normalize(direction),
+            maxLength,
+            0);
         lightIntensity = payload;
     }
     return lightIntensity;
 }
 
 void main() {
-    const vec2 uv = (vec2(gl_LaunchIDNV.xy) + vec2(0.5)) / vec2(gl_LaunchSizeNV.xy);
-    const vec2 pixel = vec2(gl_LaunchIDNV.x + 0.5, gl_LaunchIDNV.y + 0.5);
-    vec2 clipPosition = (pixel / gl_LaunchSizeNV.xy) * 2.0 - 1.0;
+    const vec2 uv = (vec2(gl_LaunchIDEXT.xy) + vec2(0.5)) / vec2(gl_LaunchIDEXT.xy);
+    const vec2 pixel = vec2(gl_LaunchIDEXT.x + 0.5, gl_LaunchIDEXT.y + 0.5);
+    vec2 clipPosition = (pixel / gl_LaunchIDEXT.xy) * 2.0 - 1.0;
     const float depth = texture(depthSampler, uv).x;
 
     vec4 lightIntensity = vec4(1.0, 1.0, 1.0, 1.0);
@@ -62,5 +63,5 @@ void main() {
     }
 
     vec4 albedo = texture(albedoSampler, uv);
-    imageStore(outputImage, ivec2(gl_LaunchIDNV), lightIntensity * albedo);
+    imageStore(outputImage, ivec2(gl_LaunchIDEXT), lightIntensity * albedo);
 }

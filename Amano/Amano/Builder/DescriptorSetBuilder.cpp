@@ -35,7 +35,7 @@ Descriptor::Descriptor(VkAccelerationStructureKHR* acc, uint32_t binding)
 	: m_type{ DescriptorType::eAccelerationStructure }
 	, m_binding{ binding }
 {
-	m_accelerationStructure.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_NV;
+	m_accelerationStructure.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
 	m_accelerationStructure.pNext = nullptr;
 	m_accelerationStructure.accelerationStructureCount = 1;
 	m_accelerationStructure.pAccelerationStructures = acc;
@@ -67,7 +67,7 @@ void Descriptor::set(VkWriteDescriptorSet& writeDescriptor, VkDescriptorSet desc
 		writeDescriptor.pImageInfo = &m_imageInfo;
 		break;
 	case Amano::Descriptor::eAccelerationStructure:
-		writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+		writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 		writeDescriptor.pNext = &m_accelerationStructure;
 		break;
 	default:

@@ -11,12 +11,12 @@ struct AccelerationStructureInfo {
 	VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
 	VkBuffer result = VK_NULL_HANDLE;
 	VkDeviceMemory resultMemory = VK_NULL_HANDLE;
-	VkBuffer build = VK_NULL_HANDLE;
-	VkDeviceMemory buildMemory = VK_NULL_HANDLE;
+	VkBuffer scratch = VK_NULL_HANDLE;
+	VkDeviceMemory scratchMemory = VK_NULL_HANDLE;
 
 	// only for top
-	VkBuffer topInstance = VK_NULL_HANDLE;
-	VkDeviceMemory topInstanceMemory = VK_NULL_HANDLE;
+	VkBuffer instance = VK_NULL_HANDLE;
+	VkDeviceMemory instanceMemory = VK_NULL_HANDLE;
 
 	void clean(Device* device);
 };
@@ -40,13 +40,15 @@ public:
 	AccelerationStructures build();
 
 private:
+	VkAccelerationStructureBuildSizesInfoKHR getBuildSizesInfo(VkAccelerationStructureKHR accStructure, const uint32_t* pMaxPrimitiveCounts, const VkAccelerationStructureBuildGeometryInfoKHR* pBuildGeomtryInfo);
 	bool createBottomLevelAccelerationStructure(VkCommandBuffer cmd);
 	bool createTopLevelAccelerationStructure(VkCommandBuffer cmd);
 
 private:
 	Device* m_device;
 	VkPipeline m_pipeline;
-	std::vector<VkGeometryNV> m_geometries;
+	std::vector<VkAccelerationStructureGeometryKHR> m_geometries;
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR> m_buildRangeInfo;
 	AccelerationStructures m_accelerationStructures;
 };
 

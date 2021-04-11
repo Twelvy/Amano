@@ -11,7 +11,8 @@ namespace {
 const std::vector<const char*> cDeviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 #ifdef AMANO_USE_RAYTRACING
-	VK_NV_RAY_TRACING_EXTENSION_NAME,
+	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 #endif
 };
 
@@ -321,16 +322,39 @@ bool Device::init(GLFWwindow* window) {
 		&& m_extensions.queryRaytracingFunctions(m_instance);
 }
 
-VkPhysicalDeviceRayTracingPropertiesNV Device::getRaytracingPhysicalProperties() {
-	VkPhysicalDeviceRayTracingPropertiesNV physicalProperties{};
-	physicalProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
-	physicalProperties.pNext = nullptr;
+VkPhysicalDeviceAccelerationStructurePropertiesKHR Device::getPhysicalAccelerationStructureProperties() {
+	// TODO: cache that
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationProperties{};
+	accelerationProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+	accelerationProperties.pNext = nullptr;
+
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR raytracingPipelineProperties{};
+	raytracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+	raytracingPipelineProperties.pNext = &accelerationProperties;
 
 	VkPhysicalDeviceProperties2 props{};
 	props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-	props.pNext = &physicalProperties;
+	props.pNext = &raytracingPipelineProperties;
 	vkGetPhysicalDeviceProperties2(m_physicalDevice, &props);
-	return physicalProperties;
+	return accelerationProperties;
+}
+
+VkPhysicalDeviceRayTracingPipelinePropertiesKHR Device::getPhysicalRaytracingPipelineProperties() {
+	// TODO: cache that
+	// it's the same code as above
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationProperties{};
+	accelerationProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+	accelerationProperties.pNext = nullptr;
+
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR raytracingPipelineProperties{};
+	raytracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+	raytracingPipelineProperties.pNext = &accelerationProperties;
+
+	VkPhysicalDeviceProperties2 props{};
+	props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	props.pNext = &raytracingPipelineProperties;
+	vkGetPhysicalDeviceProperties2(m_physicalDevice, &props);
+	return raytracingPipelineProperties;
 }
 
 void Device::waitIdle() {
@@ -392,7 +416,11 @@ bool Device::doesSuportBlitting(VkFormat format) {
 	return true;
 }
 
-bool Device::createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+bool Device::createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags propertyFlags, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+	return createBufferAndMemory(size, usage, 0, propertyFlags, buffer, bufferMemory);
+}
+
+bool Device::createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryAllocateFlags allocateFlags, VkMemoryPropertyFlags propertyFlags, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = size;
@@ -406,7 +434,7 @@ bool Device::createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, 
 	VkMemoryRequirements memRequirements;
 	vkGetBufferMemoryRequirements(m_device, buffer, &memRequirements);
 
-	bufferMemory = allocateMemory(memRequirements, properties);
+	bufferMemory = allocateMemory(memRequirements, allocateFlags, propertyFlags);
 	
 	if (vkBindBufferMemory(m_device, buffer, bufferMemory, 0) != VK_SUCCESS ) {
 		std::cerr << "failed to bind buffer and memory!" << std::endl;
@@ -420,11 +448,21 @@ void Device::destroyBuffer(VkBuffer buffer) {
 	vkDestroyBuffer(m_device, buffer, nullptr);
 }
 
-VkDeviceMemory Device::allocateMemory(VkMemoryRequirements requirements, VkMemoryPropertyFlags properties) {
+VkDeviceMemory Device::allocateMemory(VkMemoryRequirements requirements, VkMemoryPropertyFlags propertyFlags) {
+	return allocateMemory(requirements, 0, propertyFlags);
+}
+
+VkDeviceMemory Device::allocateMemory(VkMemoryRequirements requirements, VkMemoryAllocateFlags allocateFlags, VkMemoryPropertyFlags propertyFlags) {
+	VkMemoryAllocateFlagsInfo flagsInfo{};
+	flagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+	flagsInfo.pNext = nullptr;
+	flagsInfo.flags = allocateFlags;
+
 	VkMemoryAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.pNext = &flagsInfo;
 	allocInfo.allocationSize = requirements.size;
-	allocInfo.memoryTypeIndex = findMemoryType(requirements.memoryTypeBits, properties);
+	allocInfo.memoryTypeIndex = findMemoryType(requirements.memoryTypeBits, propertyFlags);
 
 	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
 	if (vkAllocateMemory(m_device, &allocInfo, nullptr, &deviceMemory) != VK_SUCCESS) {
@@ -781,7 +819,7 @@ bool Device::createDescriptorPool() {
 	poolSizes[1].descriptorCount = 100;
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	poolSizes[2].descriptorCount = 100;
-	poolSizes[3].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+	poolSizes[3].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 	poolSizes[3].descriptorCount = 100;
 
 	VkDescriptorPoolCreateInfo poolInfo{};

@@ -8,10 +8,33 @@
 
 #include <iostream>
 
+namespace {
+
+// TODO: wrap device memory into a small class to perform those calls
+VkDeviceAddress GetDeviceAddress(Amano::Device* device, VkBuffer buffer) {
+	VkBufferDeviceAddressInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	info.pNext = nullptr;
+	info.buffer = buffer;
+
+	return vkGetBufferDeviceAddress(device->handle(), &info);
+}
+
+// TODO: factorize, used in ShaderBindingTableBuilder
+uint32_t computeGroupSize(uint32_t inlineSize, uint32_t handleSize, uint32_t alignment)
+{
+	uint32_t size = handleSize + inlineSize;
+	// roundup
+	return (size + (alignment - 1)) & ~(alignment - 1);
+
+}
+
+}
+
 namespace Amano {
 
 RaytracingShadowPass::RaytracingShadowPass(Device* device)
-	: Pass(device, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV)
+	: Pass(device, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR)
 	, m_descriptorSetLayout{ VK_NULL_HANDLE }
 	, m_pipelineLayout{ VK_NULL_HANDLE }
 	, m_pipeline{ VK_NULL_HANDLE }
@@ -41,13 +64,13 @@ bool RaytracingShadowPass::init(std::vector<Mesh*>& meshes) {
 	// create layout for the raytracing pipeline
 	DescriptorSetLayoutBuilder raytracingDescriptorSetLayoutbuilder;
 	raytracingDescriptorSetLayoutbuilder
-		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, VK_SHADER_STAGE_RAYGEN_BIT_NV)  // acceleration structure
-		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_NV)              // output image
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV)             // ray parameters
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_NV)     // depth image
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_NV)     // normal image
-		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_NV)     // albedo image
-		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_NV);            // light information
+		.addBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR)  // acceleration structure
+		.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)               // output image
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)              // ray parameters
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)      // depth image
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)      // normal image
+		.addBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)      // albedo image
+		.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR);             // light information
 	m_descriptorSetLayout = raytracingDescriptorSetLayoutbuilder.build(*m_device);
 
 	// create raytracing pipeline layout
@@ -58,9 +81,9 @@ bool RaytracingShadowPass::init(std::vector<Mesh*>& meshes) {
 	// load the shaders and create the pipeline
 	RaytracingPipelineBuilder raytracingPipelineBuilder(m_device);
 	raytracingPipelineBuilder
-		.addShader("compiled_shaders/shadow.rgen.spv", VK_SHADER_STAGE_RAYGEN_BIT_NV)
-		.addShader("compiled_shaders/shadow.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_NV)
-		.addShader("compiled_shaders/shadow.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+		.addShader("compiled_shaders/shadow.rgen.spv", VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+		.addShader("compiled_shaders/shadow.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR)
+		.addShader("compiled_shaders/shadow.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
 	m_pipeline = raytracingPipelineBuilder.build(m_pipelineLayout, 1);
 
 	// create the shader binding table associated to this pipeline
@@ -103,14 +126,33 @@ void RaytracingShadowPass::recordCommands(uint32_t width, uint32_t height, Image
 		.setAspectMask(0, VK_IMAGE_ASPECT_COLOR_BIT)
 		.execute(m_commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-	vkCmdBindPipeline(m_commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_pipeline);
-	vkCmdBindDescriptorSets(m_commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+	vkCmdBindPipeline(m_commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_pipeline);
+	vkCmdBindDescriptorSets(m_commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
-	m_device->getExtensions().vkCmdTraceRaysNV(m_commandBuffer,
-		m_shaderBindingTables.rgenShaderBindingTable.buffer, 0, // offset in the shader binding table for rgen
-		m_shaderBindingTables.missShaderBindingTable.buffer, 0, m_shaderBindingTables.missShaderBindingTable.groupSize, // offset and stride for miss
-		m_shaderBindingTables.chitShaderBindingTable.buffer, 0, m_shaderBindingTables.chitShaderBindingTable.groupSize, // offset and stride for chit
-		nullptr, 0, 0,
+	// Describe the shader binding table.
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR pipelineProperties = m_device->getPhysicalRaytracingPipelineProperties();
+	VkStridedDeviceAddressRegionKHR raygenShaderBindingTable = {};
+	raygenShaderBindingTable.deviceAddress = GetDeviceAddress(m_device, m_shaderBindingTables.rgenShaderBindingTable.buffer);
+	raygenShaderBindingTable.stride = computeGroupSize(0, pipelineProperties.shaderGroupHandleSize, pipelineProperties.shaderGroupBaseAlignment);
+	raygenShaderBindingTable.size = raygenShaderBindingTable.stride; //  only 1 shader
+
+	VkStridedDeviceAddressRegionKHR missShaderBindingTable = {};
+	missShaderBindingTable.deviceAddress = GetDeviceAddress(m_device, m_shaderBindingTables.missShaderBindingTable.buffer);
+	missShaderBindingTable.stride = computeGroupSize(0, pipelineProperties.shaderGroupHandleSize, pipelineProperties.shaderGroupBaseAlignment);
+	missShaderBindingTable.size = missShaderBindingTable.stride; //  only 1 shader
+
+	VkStridedDeviceAddressRegionKHR hitShaderBindingTable = {};
+	hitShaderBindingTable.deviceAddress = GetDeviceAddress(m_device, m_shaderBindingTables.chitShaderBindingTable.buffer);
+	hitShaderBindingTable.stride = computeGroupSize(0, pipelineProperties.shaderGroupHandleSize, pipelineProperties.shaderGroupBaseAlignment);
+	hitShaderBindingTable.size = hitShaderBindingTable.stride; //  only 1 shader
+
+	VkStridedDeviceAddressRegionKHR callableShaderBindingTable = {};
+
+	m_device->getExtensions().vkCmdTraceRaysKHR(m_commandBuffer,
+		&raygenShaderBindingTable,
+		&missShaderBindingTable,
+		&hitShaderBindingTable,
+		&callableShaderBindingTable,
 		width, height, 1);
 
 	// transition the raytracing output buffer from storage to src copy

@@ -19,7 +19,7 @@ public:
 	VkPipeline build(VkPipelineLayout pipelineLayout, uint32_t maxRecursion);
 
 private:
-	std::vector<VkRayTracingShaderGroupCreateInfoNV> m_shaderGroups;
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> m_shaderGroups;
 };
 
 }

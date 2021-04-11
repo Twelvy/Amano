@@ -20,6 +20,17 @@ namespace std {
 	};
 }
 
+namespace {
+	VkDeviceAddress getBufferAddress(VkDevice device, VkBuffer buffer) {
+		VkBufferDeviceAddressInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+		info.pNext = nullptr;
+		info.buffer = buffer;
+
+		return vkGetBufferDeviceAddress(device, &info);
+	}
+}
+
 namespace Amano {
 
 Mesh::Mesh(Device* device)
@@ -44,6 +55,14 @@ bool Mesh::create(const std::string& filename) {
 	return load(filename)
 		&& createVertexBuffer()
 		&& createIndexBuffer();
+}
+
+VkDeviceAddress Mesh::getVertexBufferAddress() const {
+	return getBufferAddress(m_device->handle(), m_vertexBuffer);
+}
+
+VkDeviceAddress Mesh::getIndexBufferAddress() const {
+	return getBufferAddress(m_device->handle(), m_indexBuffer);
 }
 
 bool Mesh::load(const std::string& filename) {

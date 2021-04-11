@@ -1,11 +1,13 @@
 @echo off
 setlocal enabledelayedexpansion
 
-SET VULKAN_SDK=C:/VulkanSDK/1.2.154.1
+SET VULKAN_SDK=C:/VulkanSDK/1.2.170.0
 SET VULKAN_SDK_SPV_COMPILER=%VULKAN_SDK%/Bin/glslc.exe
 SET OUTPUT_DIR=../compiled_shaders
 
 cd ../shaders/
+
+REM mkdir if necessary
 
 FOR /R %%i IN (*) DO (
     SET SUPPORTED_SHADER=1
@@ -31,6 +33,6 @@ FOR /R %%i IN (*) DO (
         SET SUPPORTED_SHADER=0
     )
     IF !SUPPORTED_SHADER! == 1 (
-        %VULKAN_SDK_SPV_COMPILER% %%i -o %OUTPUT_DIR%/%%~nxi.spv
+        %VULKAN_SDK_SPV_COMPILER% --target-env=vulkan1.2 %%i -o %OUTPUT_DIR%/%%~nxi.spv
     )
 )

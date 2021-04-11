@@ -1,6 +1,6 @@
 #pragma once
 
-//#define AMANO_USE_RAYTRACING
+#define AMANO_USE_RAYTRACING
 
 #include "glfw.h"
 #include "Extensions.h"
@@ -30,7 +30,8 @@ public:
 	VkPhysicalDevice physicalDevice() { return m_physicalDevice; }
 	VkDevice handle() { return m_device; };
 	const Extensions& getExtensions() const { return m_extensions; }
-	VkPhysicalDeviceRayTracingPropertiesNV getRaytracingPhysicalProperties();
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR getPhysicalAccelerationStructureProperties();
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR getPhysicalRaytracingPipelineProperties();
 
 	void recreateSwapChain(GLFWwindow* window);
 
@@ -48,9 +49,11 @@ public:
 	VkResult present(VkSemaphore waitSemaphore, uint32_t imageIndex);
 	void wait();
 
-	bool createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	bool createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags propertyFlags, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	bool createBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryAllocateFlags allocateFlags, VkMemoryPropertyFlags propertyFlags, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void destroyBuffer(VkBuffer buffer);
-	VkDeviceMemory allocateMemory(VkMemoryRequirements requirements, VkMemoryPropertyFlags properties);
+	VkDeviceMemory allocateMemory(VkMemoryRequirements requirements, VkMemoryPropertyFlags propertyFlags);
+	VkDeviceMemory allocateMemory(VkMemoryRequirements requirements, VkMemoryAllocateFlags allocateFlags, VkMemoryPropertyFlags propertyFlags);
 	void freeDeviceMemory(VkDeviceMemory deviceMemory);
 
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, QueueType queueType);

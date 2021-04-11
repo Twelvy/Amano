@@ -25,6 +25,10 @@ public:
 	uint32_t getVertexCount() const { return static_cast<uint32_t>(m_vertices.size()); }
 	uint32_t getIndexCount() const { return static_cast<uint32_t>(m_indices.size()); }
 
+	// TODO: should abstract VkBuffer so that this method is available all the time
+	VkDeviceAddress getVertexBufferAddress() const;
+	VkDeviceAddress getIndexBufferAddress() const;
+
 private:
 	bool load(const std::string& filename);
 	bool createVertexBuffer();
